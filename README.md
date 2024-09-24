@@ -1,4 +1,4 @@
-# EasyLoot 1.0
+# EasyLoot 1.1
 Automatic loot rules for instances and groups. Have loot handle itself.  
 ---
 `/easyloot` for in game options.  
@@ -11,6 +11,7 @@ Features:
 * Auto-repair option.  
 * Auto-accept invite option.  
 * Automation of many common gossip actions.  
+* Shift-Click to **not** autoloot a mob.
 
 Get quest completion with [QuestRepeat](https://github.com/MarcelineVQ/QuestRepeat) 
 

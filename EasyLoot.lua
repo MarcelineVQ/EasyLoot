@@ -321,6 +321,7 @@ end
 
 -- 0 pass, 1 need, 2 greed
 function EasyLoot:START_LOOT_ROLL(roll_id,time_left)
+  if IsShiftKeyDown() then return end -- toggle autolooting
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
   -- print(roll_id)
   -- print(name)
@@ -330,6 +331,7 @@ end
 
 -- a BoP item ask, these can be autorolled but only by explicit whitelist
 function EasyLoot:CONFIRM_LOOT_ROLL(roll_id,roll_type)
+  if IsShiftKeyDown() then return end -- toggle autolooting
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
   local r = EasyLoot:HandleItem(name,true)
 
@@ -342,9 +344,20 @@ function EasyLoot:CONFIRM_LOOT_ROLL(roll_id,roll_type)
   end
 end
 
+
+-- obnoxious hook to solve pfui not clearing itself properly
+local orig_pfUI_UpdateLootFrame = function () end
+if pfUI and pfUI.loot then
+  orig_pfUI_UpdateLootFrame = pfUI.loot.UpdateLootFrame
+  pfUI.loot.UpdateLootFrame = function () end
+end
+
 function EasyLoot:LOOT_OPENED()
-  -- get loot count, check slots, loot all slots unless on pass-list
-  local numLootItems = LootFrame.numLootItems
+  if IsShiftKeyDown() then -- toggle autolooting
+    orig_pfUI_UpdateLootFrame()
+    return
+  end
+  local numLootItems = GetNumLootItems()
   for slot = 1, numLootItems do
     if LootSlotIsCoin(slot) then
       LootSlot(slot,true)
@@ -368,6 +381,21 @@ function EasyLoot:LOOT_OPENED()
       end
     end
   end
+  -- we're done looting, allow pfui to try
+  orig_pfUI_UpdateLootFrame()
+end
+
+function EasyLoot:LOOT_CLOSED()
+  -- if pfUI and pfUI.loot then
+  --   -- StaticPopup_Hide("LOOT_BIND")
+  --   HideUIPanel(pfUI.loot)
+  --   if DropDownList1:IsShown() then CloseDropDownMenus() end
+  --   for _, v in pairs(pfUI.loot.slots) do
+  --     v:Hide()
+  --   end
+  -- end
+  -- pfUI.loot:Hide()
+
 end
 
 -- Register the ADDON_LOADED event
@@ -402,6 +430,7 @@ function EasyLoot:ADDON_LOADED(addon)
   EasyLoot:Load()
   EasyLoot:RegisterEvent("START_LOOT_ROLL")
   EasyLoot:RegisterEvent("LOOT_OPENED")
+  EasyLoot:RegisterEvent("LOOT_CLOSED")
   EasyLoot:RegisterEvent("CONFIRM_LOOT_ROLL")
   EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
   EasyLoot:RegisterEvent("MERCHANT_SHOW")
@@ -449,7 +478,10 @@ function EasyLoot:MERCHANT_SHOW()
         return
       end
       RepairAllItems()
-      el_print("Equipment repaired for: " .. format("|cffd7b845%dg|cff979697%ds|cffa05a39%dc|r", rcost/100/100, math.mod(rcost/100,100), math.mod(rcost,100)))
+      local COLOR_COPPER = "|cffeda55f"
+      local COLOR_SILVER = "|cffc7c7cf"
+      local COLOR_GOLD = "|cffffd700"
+      el_print("Equipment repaired for: " .. format("%s%dg %s%ds %s%dc|r",COLOR_GOLD,rcost/100/100,COLOR_SILVER,math.mod(rcost/100,100),COLOR_COPPER,math.mod(rcost,100)))
     end
   end
 end
