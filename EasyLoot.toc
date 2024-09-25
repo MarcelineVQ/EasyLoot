@@ -1,9 +1,9 @@
 ## Interface: 11200
-## Title: [SuperWoW] EasyLoot 1.1.3 |cff7fff7fSuper-WoW|r
+## Title: [SuperWoW] EasyLoot 1.2 |cff7fff7fSuper-WoW|r
 ## Notes: Have loot handle itself
 ## Author: Weird Vibes
 ## SavedVariablesPerCharacter: EasyLootDB
-## Version: 1.1.3
+## Version: 1.2
 ## OptionalDeps: SuperAPI, pfUI
 
 EasyLoot.lua

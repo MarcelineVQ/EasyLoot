@@ -79,6 +79,8 @@ EasyLoot.NEED = 1
 EasyLoot.GREED = 2
 local OFF,PASS,NEED,GREED = EasyLoot.OFF,EasyLoot.PASS,EasyLoot.NEED,EasyLoot.GREED
 
+local binds = {}
+
 ------------------------------
 -- Table Functions
 ------------------------------
@@ -250,6 +252,7 @@ local default_settings = {
   mc_boe = NEED,
 
   pass_greys = false,
+  only_holy = false,
   general_boe_rule = OFF,
   auto_repair = true,
   auto_invite = true,
@@ -282,14 +285,15 @@ local item_classes = {
 }
 
 -- Determine what kind of roll we want for the item and do the pass, or roll of need or greed
+-- returns the roll type and if it was in an explicit list
 function EasyLoot:HandleItem(name,explicit_only)
   -- check specific lists first
   if fuzzy_elem(EasyLootDB.needlist,name) then
-    return NEED
+    return NEED,true
   elseif fuzzy_elem(EasyLootDB.greedlist,name) then
-    return GREED
+    return GREED,true
   elseif fuzzy_elem(EasyLootDB.passlist,name) then
-    return PASS
+    return PASS,true
   end
 
   if explicit_only then return OFF end
@@ -343,9 +347,32 @@ function EasyLoot:START_LOOT_ROLL(roll_id,time_left)
   if r >= 0 then RollOnLoot(roll_id,r) end
 end
 
+function EasyLoot:LOOT_BIND_CONFIRM(slot)
+  -- solo play, queue the loot for accepting
+  if not InGroup() then
+    debug_print("solo bind")
+    table.insert(binds,slot)
+    return
+  end
+
+  -- check whitelists if in group, say if everyone passed already
+  -- could happen if you shift-click the boss and don't autoloot
+  local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
+  local r = EasyLoot:HandleItem(item)
+  if r > 0 then
+    debug_print("party bind")
+    table.insert(binds,slot)
+    return
+  end
+end
+
+function EasyLoot:LOOT_SLOT_CLEARED(slot)
+end
+
 -- a BoP item ask, these can be autorolled but only by explicit whitelist
 function EasyLoot:CONFIRM_LOOT_ROLL(roll_id,roll_type)
   if IsShiftKeyDown() then return end -- toggle autolooting
+
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
   local r = EasyLoot:HandleItem(name,bop)
 
@@ -372,23 +399,49 @@ function EasyLoot:LOOT_OPENED()
     return
   end
   local numLootItems = GetNumLootItems()
+
+  -- strat chest check
+  if GetRealZoneText() == "Stratholme" and EasyLootDB.settings.only_holy then
+    local water = string.lower("Stratholme Holy Water")
+    for slot = 1, numLootItems do
+      local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
+      if LootSlotIsCoin(slot) then
+        LootSlot(slot,true)
+      elseif LootSlotIsItem(slot) and string.lower(item) == water then
+        LootSlot(slot,true)
+        return
+      end
+    end
+  end
+
   for slot = 1, numLootItems do
     if LootSlotIsCoin(slot) then
       LootSlot(slot,true)
     elseif LootSlotIsItem(slot) then
-      _texture, item, _quantity, quality = GetLootSlotInfo(slot)
       local loot_method = GetLootMethod()
-      if fuzzy_elem(EasyLootDB.passlist,item) then
-        -- do nothing
-        debug_print("passlist "..item)
-      elseif quality == 0 and EasyLootDB.settings.pass_greys then
-        -- do nothing
+      local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
+      local r,in_explicit_list = EasyLoot:HandleItem(item)
+      local is_container = not (UnitExists("target") and UnitIsDead("target")) -- best we can do
+
+      -- determine loot to skip
+      if r == OFF or r == PASS then
+        -- item handler determined this isn't loot to consider
+        if in_explicit_list and (r == PASS) then
+          -- loot is on our pass list
+          debug_print("passlist "..item)
+        end
+      elseif (quality == 0 and EasyLootDB.settings.pass_greys) and not (r > 0 and in_explicit_list) then
+        -- do nothing, unless it's a whitelist item
         debug_print("passgrey " .. item)
-      elseif not (UnitExists("target") and UnitIsDead("target")) then
+
+      -- if we are looting from a chest, ignore further loot rules
+      elseif is_container then
         -- container
         debug_print("conatinerloot "..item)
         LootSlot(slot,true)
-      elseif loot_method == "group" or loot_method == "needbeforegreed" then
+
+      -- if we're looting a mob follow loot rules
+      elseif InGroup() and (loot_method == "group" or loot_method == "needbeforegreed") then
         -- check the current threshold so it doens't try to loot something already being rolled for
         if quality >= GetLootThreshold() then
           -- a group roll will happen, don't loot the slot manually or you'll get an error
@@ -397,20 +450,31 @@ function EasyLoot:LOOT_OPENED()
           debug_print("grouploot below threshhold "..item)
           LootSlot(slot,true)
         end
-      elseif loot_method == "masterloot" then
-        -- don't loot since masterloot is on anyway, this check is later because of lootable chest items
+      elseif InGroup() and (loot_method == "masterloot") then
+        -- don't loot since masterloot is on anyway
         debug_print("masterloot on "..item)
+
+      -- finally loot whatever wasn't handled above
       else
         debug_print("looting "..item)
         LootSlot(slot,true)
       end
     end
+    -- it the above looting caused a bind, resolve it
+    -- seems like an odd place/way to do it, but trying it any other way wasn't consistent
+    if next(binds) then
+      LootSlot(table.remove(binds))
+      StaticPopup_Hide("LOOT_BIND")
+    end
   end
+  debug_print("binds left: " .. tsize(binds))
+
   -- we're done looting, allow pfui to try
   orig_pfUI_UpdateLootFrame()
 end
 
 function EasyLoot:LOOT_CLOSED()
+  -- binds = {}
 end
 
 -- Register the ADDON_LOADED event
@@ -432,6 +496,7 @@ function EasyLoot:Load()
   EasyLootDB.settings.auto_repair = (EasyLootDB.settings.auto_repair == nil) and default_settings.auto_repair or EasyLootDB.settings.auto_repair
   EasyLootDB.settings.auto_invite = (EasyLootDB.settings.auto_invite == nil) and default_settings.auto_invite or EasyLootDB.settings.auto_invite
   EasyLootDB.settings.auto_gossip = (EasyLootDB.settings.auto_gossip == nil) and default_settings.auto_gossip or EasyLootDB.settings.auto_gossip
+  EasyLootDB.settings.only_holy = (EasyLootDB.settings.only_holy == nil) and default_settings.only_holy or EasyLootDB.settings.only_holy
 
 end
 
@@ -441,6 +506,8 @@ function EasyLoot:ADDON_LOADED(addon)
   EasyLoot:RegisterEvent("START_LOOT_ROLL")
   EasyLoot:RegisterEvent("LOOT_OPENED")
   EasyLoot:RegisterEvent("LOOT_CLOSED")
+  EasyLoot:RegisterEvent("LOOT_BIND_CONFIRM")
+  EasyLoot:RegisterEvent("LOOT_SLOT_CLEARED")
   EasyLoot:RegisterEvent("CONFIRM_LOOT_ROLL")
   EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
   EasyLoot:RegisterEvent("MERCHANT_SHOW")
@@ -672,9 +739,10 @@ function EasyLoot:CreateConfig()
   -- Additional options checkboxes
   local boeRuleDropdown = CreateDropdown(EasyLootConfigFrame, "General BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.general_boe_rule), 330, -60, "GeneralBoEDropdown", "general_boe_rule")
   local passOnGreysCheckbox = CreateCheckbox("Pass on Greys", 330, -100, "pass_greys", "Do not loot grey items.")
-  local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -130, "auto_invite", "Always accept invites from friends or guild members.")
-  local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -160, "auto_repair", "Repair at any valid vendor (hold Ctrl to disable).")
-  local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -190, "auto_gossip", "Automatically choose the most common gossip options (hold Ctrl to disable).")
+  local onlyHolyCheckbox = CreateCheckbox("Holy Water Only", 330, -130, "only_holy", "Only loot holy water from Stratholme Chests.")
+  local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -160, "auto_invite", "Always accept invites from friends or guild members.")
+  local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -190, "auto_repair", "Repair at any valid vendor (hold Ctrl to disable).")
+  local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -220, "auto_gossip", "Automatically choose the most common gossip options (hold Ctrl to disable).")
 
   ------------------------------------
 
@@ -768,7 +836,7 @@ function EasyLoot:CreateConfig()
 -- Function to add item to dropdown
 local function AddItemToDropdown(dropdown_list, item)
   table.insert(dropdown_list, item)
-  el_print("Added item: "..item.." to dropdown.")
+  el_print("Added item: "..item.." to whitelist.")
 end
 
 -- Function to remove item from dropdown
@@ -776,7 +844,7 @@ local function RemoveItemFromDropdown(dropdown_list, item)
   for i,name in ipairs(dropdown_list) do
     if name == item then
       table.remove(dropdown_list,i)
-      el_print("Removed item: "..item.." from dropdown.")
+      el_print("Removed item: "..item.." from whitelist.")
       break
     end
   end
