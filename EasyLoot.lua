@@ -259,6 +259,7 @@ local default_need_list = {
   "Corrupted Sand",
   "Arcane Essence",
   "Righteous Orb",
+  "Fashion Coin",
 }
 
 local default_greed_list = {
@@ -290,7 +291,7 @@ function EasyLoot:HandleItem(name,explicit_only)
     return PASS
   end
 
-  if explicit_only then return end
+  if explicit_only then return OFF end
   -- now check more general things like zone items:
   if GetRealZoneText() == "Zul'Gurub" then
     if elem(zg_coin,name) then
@@ -337,9 +338,7 @@ end
 function EasyLoot:START_LOOT_ROLL(roll_id,time_left)
   if IsShiftKeyDown() then return end -- toggle autolooting
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
-  -- print(roll_id)
-  -- print(name)
-  local r = EasyLoot:HandleItem(name)
+  local r = EasyLoot:HandleItem(name,bop)
   if r >= 0 then RollOnLoot(roll_id,r) end
 end
 
@@ -347,7 +346,7 @@ end
 function EasyLoot:CONFIRM_LOOT_ROLL(roll_id,roll_type)
   if IsShiftKeyDown() then return end -- toggle autolooting
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
-  local r = EasyLoot:HandleItem(name,true)
+  local r = EasyLoot:HandleItem(name,bop)
 
   if r == OFF then return end
   if r == roll_type then
