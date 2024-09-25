@@ -137,6 +137,8 @@ local gossips_skip_lines = {
   bwl = "my hand on the orb",
   nef1 = "made no mistakes",
   nef2 = "have lost your mind",
+  rag1 = "challenged us and we have come",
+  rag2 = "else do you have to say",
 }
 
 ------------------------------
@@ -431,11 +433,6 @@ function EasyLoot:Load()
   EasyLootDB.settings.auto_invite = (EasyLootDB.settings.auto_invite == nil) and default_settings.auto_invite or EasyLootDB.settings.auto_invite
   EasyLootDB.settings.auto_gossip = (EasyLootDB.settings.auto_gossip == nil) and default_settings.auto_gossip or EasyLootDB.settings.auto_gossip
 
-  -- EasyLootDB.settings = default_settings
-  -- EasyLootDB.needlist = default_need_list
-  -- EasyLootDB.greedlist = default_greed_list
-  -- EasyLootDB.passlist = default_pass_list
-
 end
 
 function EasyLoot:ADDON_LOADED(addon)
@@ -451,15 +448,10 @@ function EasyLoot:ADDON_LOADED(addon)
   -- todo, should this turn off autoloot since it handles it itself?
   -- todo, option to only loot greens,money, and holy water from strat chests?
 
-  -- todo, hook away superapi's autoloot functionality and set autloot to not since this handles it
-  -- print("el loading")
+  -- hook away superapi's autoloot functionality and set autloot to off since this handles it
   if IfShiftAutoloot then
-    -- print("existed")
     IfShiftAutoloot = function () return end
   end
-  -- if SetAutoloot then
-    -- if SetAutoloot() == 1 then SetAutoloot(0) else SetAutoloot(1) end
-  -- end
   if SetAutoloot then
     SetAutoloot(0)
   end
@@ -483,19 +475,18 @@ end
 
 -- lazypigs
 function EasyLoot:MERCHANT_SHOW()
-  if EasyLootDB.settings.auto_repair and CanMerchantRepair() then
-    local rcost = GetRepairAllCost()
-    if rcost and rcost ~= 0 then
-      if rcost > GetMoney() then 
-        el_print("Not Enough Money to Repair.")
-        return
-      end
-      RepairAllItems()
-      local COLOR_COPPER = "|cffeda55f"
-      local COLOR_SILVER = "|cffc7c7cf"
-      local COLOR_GOLD = "|cffffd700"
-      el_print("Equipment repaired for: " .. format("%s%dg %s%ds %s%dc|r",COLOR_GOLD,rcost/100/100,COLOR_SILVER,math.mod(rcost/100,100),COLOR_COPPER,math.mod(rcost,100)))
+  if not EasyLootDB.settings.auto_repair or not CanMerchantRepair() or IsControlKeyDown() then return end
+  local rcost = GetRepairAllCost()
+  if rcost and rcost ~= 0 then
+    if rcost > GetMoney() then
+      el_print("Not Enough Money to Repair.")
+      return
     end
+    RepairAllItems()
+    local COLOR_COPPER = "|cffeda55f"
+    local COLOR_SILVER = "|cffc7c7cf"
+    local COLOR_GOLD = "|cffffd700"
+    el_print("Equipment repaired for: " .. format("%s%dg %s%ds %s%dc|r",COLOR_GOLD,rcost/100/100,COLOR_SILVER,math.mod(rcost/100,100),COLOR_COPPER,math.mod(rcost,100)))
   end
 end
 
@@ -506,7 +497,6 @@ function EasyLoot:GOSSIP_SHOW()
   local t = { GetGossipOptions() }
   local t2 = {}
   for i=1,tsize(t),2 do
-    -- print(t[i+1])
     table.insert(t2, { text = t[i], gossip = t[i+1] })
   end
   for i,entry in ipairs(t2) do
@@ -682,8 +672,8 @@ function EasyLoot:CreateConfig()
   local boeRuleDropdown = CreateDropdown(EasyLootConfigFrame, "General BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.general_boe_rule), 330, -60, "GeneralBoEDropdown", "general_boe_rule")
   local passOnGreysCheckbox = CreateCheckbox("Pass on Greys", 330, -100, "pass_greys", "Do not loot grey items.")
   local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -130, "auto_invite", "Always accept invites from friends or guild members.")
-  local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -160, "auto_repair", "Repair at any valid vendor.")
-  local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -190, "auto_gossip", "Automatically choose the most common gossip options.")
+  local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -160, "auto_repair", "Repair at any valid vendor (hold Ctrl to disable).")
+  local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -190, "auto_gossip", "Automatically choose the most common gossip options (hold Ctrl to disable).")
 
   ------------------------------------
 
