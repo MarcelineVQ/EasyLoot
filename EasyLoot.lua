@@ -131,12 +131,13 @@ function deepcopy(original)
   return copy
 end
 
-local gossips = { "taxi", "trainer", "battlemaster", "vendor", "banker" }
+-- don't skip trainer, they're often used for untalenting
+local gossips = { "taxi", --[["trainer",--]] "battlemaster", "vendor", "banker" }
 local gossips_skip_lines = {
-  mc = "me to the Molten Core",
   bwl = "my hand on the orb",
   nef1 = "made no mistakes",
   nef2 = "have lost your mind",
+  mc = "me to the Molten Core",
   rag1 = "challenged us and we have come",
   rag2 = "else do you have to say",
 }
@@ -327,7 +328,7 @@ function EasyLoot:HandleItem(name,explicit_only)
     if elem(scrap,name) then
       return EasyLootDB.settings.naxx_scrap
     else
-      return EasyLootDB.settings.naxx_scrap
+      return EasyLootDB.settings.naxx_boe
     end
   else
     return EasyLootDB.settings.general_boe_rule
@@ -444,8 +445,6 @@ function EasyLoot:ADDON_LOADED(addon)
   EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
   EasyLoot:RegisterEvent("MERCHANT_SHOW")
   EasyLoot:RegisterEvent("GOSSIP_SHOW")
-  -- todo, should this turn off autoloot since it handles it itself?
-  -- todo, option to only loot greens,money, and holy water from strat chests?
 
   -- hook away superapi's autoloot functionality and set autloot to off since this handles it
   if IfShiftAutoloot then
@@ -482,16 +481,18 @@ function EasyLoot:MERCHANT_SHOW()
       return
     end
     RepairAllItems()
-    local COLOR_COPPER = "|cffeda55f"
-    local COLOR_SILVER = "|cffc7c7cf"
-    local COLOR_GOLD = "|cffffd700"
-    el_print("Equipment repaired for: " .. format("%s%dg %s%ds %s%dc|r",COLOR_GOLD,rcost/100/100,COLOR_SILVER,math.mod(rcost/100,100),COLOR_COPPER,math.mod(rcost,100)))
+    local COLOR_GOLD   = format("|cffffd700%dg|r",rcost/100/100)
+    local COLOR_SILVER = format("|cffc7c7cf%ds|r",math.mod(rcost/100,100))
+    local COLOR_COPPER = format("|cffeda55f%dc|r",math.mod(rcost,100))
+    el_print(format("Equipment repaired for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
   end
 end
 
--- TODO: should this _not_ skip gossip if there's quests available
 function EasyLoot:GOSSIP_SHOW()
   if not EasyLootDB.settings.auto_gossip or IsControlKeyDown() then return end
+
+  -- If there's something more to do than just gossip, don't automate
+  if GetGossipAvailableQuests() or GetGossipActiveQuests() then return end
 
   local t = { GetGossipOptions() }
   local t2 = {}
@@ -504,6 +505,7 @@ function EasyLoot:GOSSIP_SHOW()
       for _,line in gossips_skip_lines do
         if string.find(entry.text, line) then
           SelectGossipOption(i)
+          break
         end
       end
     end
