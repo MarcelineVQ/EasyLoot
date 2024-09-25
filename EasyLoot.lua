@@ -4,6 +4,10 @@ local function print(msg)
   DEFAULT_CHAT_FRAME:AddMessage(msg)
 end
 
+local function debug_print(msg)
+  if DEBUG then DEFAULT_CHAT_FRAME:AddMessage(msg) end
+end
+
 local function el_print(msg)
   DEFAULT_CHAT_FRAME:AddMessage("|cffffff00EasyLoot:|r "..msg)
 end
@@ -126,6 +130,14 @@ function deepcopy(original)
   end
   return copy
 end
+
+local gossips = { "taxi", "trainer", "battlemaster", "vendor", "banker" }
+local gossips_skip_lines = {
+  mc = "me to the Molten Core",
+  bwl = "my hand on the orb",
+  nef1 = "made no mistakes",
+  nef2 = "have lost your mind",
+}
 
 ------------------------------
 -- Loot Data
@@ -362,22 +374,33 @@ function EasyLoot:LOOT_OPENED()
     if LootSlotIsCoin(slot) then
       LootSlot(slot,true)
     elseif LootSlotIsItem(slot) then
-      -- this should check the current threshold so it doens't try to loot something already being rolled for
       _texture, item, _quantity, quality = GetLootSlotInfo(slot)
       local loot_method = GetLootMethod()
-      if not (quality == 0 and EasyLootDB.settings.pass_greys) then
-        if loot_method == "group" or loot_method == "needbeforegreed" then
-          if quality >= GetLootThreshold() then
-            -- a group roll will happen, don't loot the slot manually
-          elseif not fuzzy_elem(EasyLootDB.passlist,item) then
-            LootSlot(slot,true)
-          end
-        elseif loot_method == "masterloot" then
-          -- don't loot since masterloot is on, and coin loot will already be done
-        elseif not fuzzy_elem(EasyLootDB.passlist,item) then
-          -- check for if we want to loot this
+      if fuzzy_elem(EasyLootDB.passlist,item) then
+        -- do nothing
+        debug_print("passlist "..item)
+      elseif quality == 0 and EasyLootDB.settings.pass_greys then
+        -- do nothing
+        debug_print("passgrey " .. item)
+      elseif not (UnitExists("target") and UnitIsDead("target")) then
+        -- container
+        debug_print("conatinerloot "..item)
+        LootSlot(slot,true)
+      elseif loot_method == "group" or loot_method == "needbeforegreed" then
+        -- check the current threshold so it doens't try to loot something already being rolled for
+        if quality >= GetLootThreshold() then
+          -- a group roll will happen, don't loot the slot manually or you'll get an error
+          debug_print("grouploot "..item)
+        else
+          debug_print("grouploot below threshhold "..item)
           LootSlot(slot,true)
         end
+      elseif loot_method == "masterloot" then
+        -- don't loot since masterloot is on anyway, this check is later because of lootable chest items
+        debug_print("masterloot on "..item)
+      else
+        debug_print("looting "..item)
+        LootSlot(slot,true)
       end
     end
   end
@@ -386,16 +409,6 @@ function EasyLoot:LOOT_OPENED()
 end
 
 function EasyLoot:LOOT_CLOSED()
-  -- if pfUI and pfUI.loot then
-  --   -- StaticPopup_Hide("LOOT_BIND")
-  --   HideUIPanel(pfUI.loot)
-  --   if DropDownList1:IsShown() then CloseDropDownMenus() end
-  --   for _, v in pairs(pfUI.loot.slots) do
-  --     v:Hide()
-  --   end
-  -- end
-  -- pfUI.loot:Hide()
-
 end
 
 -- Register the ADDON_LOADED event
@@ -486,7 +499,7 @@ function EasyLoot:MERCHANT_SHOW()
   end
 end
 
-local gossips = { "taxi", "trainer", "battlemaster", "vendor", "banker" }
+-- TODO: should this _not_ skip gossip if there's quests available
 function EasyLoot:GOSSIP_SHOW()
   if not EasyLootDB.settings.auto_gossip or IsControlKeyDown() then return end
 
@@ -499,10 +512,10 @@ function EasyLoot:GOSSIP_SHOW()
   for i,entry in ipairs(t2) do
     if elem(gossips, entry.gossip) then SelectGossipOption(i) end
     if entry.gossip == "gossip" then
-      -- special cases
-      -- print(entry.text)
-      if string.find(entry.text, "me to the Molten Core") or string.find(entry.text, "my hand on the orb") then
-        SelectGossipOption(i)
+      for _,line in gossips_skip_lines do
+        if string.find(entry.text, line) then
+          SelectGossipOption(i)
+        end
       end
     end
   end
