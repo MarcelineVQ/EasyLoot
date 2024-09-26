@@ -341,7 +341,6 @@ end
 
 -- 0 pass, 1 need, 2 greed
 function EasyLoot:START_LOOT_ROLL(roll_id,time_left)
-  if IsShiftKeyDown() then return end -- toggle autolooting
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
   local r = EasyLoot:HandleItem(name,bop)
   if r >= 0 then RollOnLoot(roll_id,r) end
@@ -371,8 +370,6 @@ end
 
 -- a BoP item ask, these can be autorolled but only by explicit whitelist
 function EasyLoot:CONFIRM_LOOT_ROLL(roll_id,roll_type)
-  if IsShiftKeyDown() then return end -- toggle autolooting
-
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
   local r = EasyLoot:HandleItem(name,bop)
 
@@ -401,7 +398,7 @@ function EasyLoot:LOOT_OPENED()
   local numLootItems = GetNumLootItems()
 
   -- strat chest check
-  if GetRealZoneText() == "Stratholme" and EasyLootDB.settings.only_holy then
+  if EasyLootDB.settings.only_holy and GetRealZoneText() == "Stratholme" then
     local water = string.lower("Stratholme Holy Water")
     for slot = 1, numLootItems do
       local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
