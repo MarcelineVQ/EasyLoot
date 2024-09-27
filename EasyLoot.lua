@@ -357,7 +357,7 @@ function EasyLoot:LOOT_BIND_CONFIRM(slot)
   -- check whitelists if in group, say if everyone passed already
   -- could happen if you shift-click the boss and don't autoloot
   local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
-  local r = EasyLoot:HandleItem(item)
+  local r = EasyLoot:HandleItem(item,true) -- we're in a group, use explicit still
   if r > 0 then
     debug_print("party bind")
     table.insert(binds,slot)
@@ -447,7 +447,7 @@ function EasyLoot:LOOT_OPENED()
           debug_print("grouploot below threshhold "..item)
           LootSlot(slot,true)
         end
-      elseif InGroup() and (loot_method == "masterloot") then
+      elseif InGroup() and (loot_method == "master") then
         -- don't loot since masterloot is on anyway
         debug_print("masterloot on "..item)
 

@@ -1,4 +1,4 @@
-# EasyLoot 1.2.1
+# EasyLoot 1.2.3
 Automatic loot rules for instances and groups. Have loot handle itself.  
 ---
 `/easyloot` for in game options.  
