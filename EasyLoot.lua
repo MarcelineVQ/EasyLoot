@@ -16,6 +16,12 @@ end
 
 -- /// Util functions /// --
 
+local function ItemLinkToName(link)
+  if ( link ) then
+    return gsub(link,"^.*%[(.*)%].*$","%1");
+  end
+end
+
 local function PostHookFunction(original,hook)
   return function(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10)
     original(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10)
@@ -66,6 +72,8 @@ function IsFriend(name)
 	end
 	return nil
 end
+
+
 
 ------------------------------
 -- Vars
@@ -509,6 +517,8 @@ function EasyLoot:ADDON_LOADED(addon)
   EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
   EasyLoot:RegisterEvent("MERCHANT_SHOW")
   EasyLoot:RegisterEvent("GOSSIP_SHOW")
+  EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
+  EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
 
   -- hook away superapi's autoloot functionality and set autloot to off since this handles it
   if IfShiftAutoloot then
@@ -577,6 +587,9 @@ function EasyLoot:GOSSIP_SHOW()
 end
 
 function EasyLoot:CreateConfig()
+
+  local loot_quality_dropdown = { [-1] = "Off", [0] = "Pass", [2] = "Greed", [1] = "Need" }
+
   -- Create main frame for the configuration menu
   local EasyLootConfigFrame = CreateFrame("Frame", "EasyLootConfigFrame", UIParent)
   EasyLootConfigFrame:SetWidth(500)  -- Increased width to accommodate the horizontal layout
@@ -661,9 +674,9 @@ function EasyLoot:CreateConfig()
   zgLabel:SetText("ZG")
 
   -- Horizontal layout for ZG
-  local zgCoinsDropdown = CreateDropdown(EasyLootConfigFrame, "Coins", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.zg_coin), 20, -60, "ZGCoinsDropdown", "zg_coin")
-  local zgBijouDropdown = CreateDropdown(EasyLootConfigFrame, "Bijou", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.zg_bijou), 110, -60, "ZGBijouDropdown", "zg_bijou")
-  local zgBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.zg_boe), 200, -60, "ZGBoEDropdown", "zg_boe")
+  local zgCoinsDropdown = CreateDropdown(EasyLootConfigFrame, "Coins", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.zg_coin], 20, -60, "ZGCoinsDropdown", "zg_coin")
+  local zgBijouDropdown = CreateDropdown(EasyLootConfigFrame, "Bijou", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.zg_bijou], 110, -60, "ZGBijouDropdown", "zg_bijou")
+  local zgBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.zg_boe], 200, -60, "ZGBoEDropdown", "zg_boe")
 
   -- Raid section: AQ20
   local aq20Label = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -671,9 +684,9 @@ function EasyLoot:CreateConfig()
   aq20Label:SetText("AQ20")
 
   -- Horizontal layout for AQ20
-  local aq20IdolsDropdown = CreateDropdown(EasyLootConfigFrame, "Idols", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.aq20_idol), 20, -140, "AQ20IdolsDropdown", "aq20_idol")
-  local aq20ScarabsDropdown = CreateDropdown(EasyLootConfigFrame, "Scarabs", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.aq20_scarab), 110, -140, "AQ20ScarabsDropdown", "aq20_scarab")
-  local aq20BoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.aq20_boe), 200, -140, "AQ20BoEDropdown", "aq20_boe")
+  local aq20IdolsDropdown = CreateDropdown(EasyLootConfigFrame, "Idols", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq20_idol], 20, -140, "AQ20IdolsDropdown", "aq20_idol")
+  local aq20ScarabsDropdown = CreateDropdown(EasyLootConfigFrame, "Scarabs", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq20_scarab], 110, -140, "AQ20ScarabsDropdown", "aq20_scarab")
+  local aq20BoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq20_boe], 200, -140, "AQ20BoEDropdown", "aq20_boe")
 
   -- Raid section: MC
   local mcLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -681,8 +694,8 @@ function EasyLoot:CreateConfig()
   mcLabel:SetText("MC")
 
   -- Horizontal layout for MC
-  local mcMatsDropdown = CreateDropdown(EasyLootConfigFrame, "Mats", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.mc_mat), 20, -220, "MCMatsDropdown", "mc_mat")
-  local mcBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.mc_boe), 110, -220, "MCBoEDropdown", "mc_boe")
+  local mcMatsDropdown = CreateDropdown(EasyLootConfigFrame, "Mats", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.mc_mat], 20, -220, "MCMatsDropdown", "mc_mat")
+  local mcBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.mc_boe], 110, -220, "MCBoEDropdown", "mc_boe")
 
   -- Raid section: AQ40
   local aq40Label = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -690,9 +703,9 @@ function EasyLoot:CreateConfig()
   aq40Label:SetText("AQ40")
 
   -- Horizontal layout for AQ40
-  local aq40IdolsDropdown = CreateDropdown(EasyLootConfigFrame, "Idols", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.aq40_idol), 20, -300, "AQ40IdolsDropdown", "aq40_idol")
-  local aq40ScarabsDropdown = CreateDropdown(EasyLootConfigFrame, "Scarabs", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.aq40_scarab), 110, -300, "AQ40ScarabsDropdown", "aq40_scarab")
-  local aq40BoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.aq40_boe), 200, -300, "AQ40BoEDropdown", "aq40_boe")
+  local aq40IdolsDropdown = CreateDropdown(EasyLootConfigFrame, "Idols", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq40_idol], 20, -300, "AQ40IdolsDropdown", "aq40_idol")
+  local aq40ScarabsDropdown = CreateDropdown(EasyLootConfigFrame, "Scarabs", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq40_scarab], 110, -300, "AQ40ScarabsDropdown", "aq40_scarab")
+  local aq40BoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq40_boe], 200, -300, "AQ40BoEDropdown", "aq40_boe")
 
   -- Raid section: Naxx
   local naxxLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -700,8 +713,8 @@ function EasyLoot:CreateConfig()
   naxxLabel:SetText("Naxx")
 
   -- Horizontal layout for Naxx
-  local naxxScrapDropdown = CreateDropdown(EasyLootConfigFrame, "Scraps", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.naxx_scrap), 20, -380, "NaxxScrapDropdown", "naxx_scrap")
-  local naxxBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.naxx_boe), 110, -380, "NaxxBoEDropdown", "naxx_boe")
+  local naxxScrapDropdown = CreateDropdown(EasyLootConfigFrame, "Scraps", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.naxx_scrap], 20, -380, "NaxxScrapDropdown", "naxx_scrap")
+  local naxxBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.naxx_boe], 110, -380, "NaxxBoEDropdown", "naxx_boe")
 
 
   ----------------------------------------------------------------------
@@ -734,7 +747,7 @@ function EasyLoot:CreateConfig()
   end
 
   -- Additional options checkboxes
-  local boeRuleDropdown = CreateDropdown(EasyLootConfigFrame, "General BoE", {"Off", "Pass", "Greed", "Need"}, prettify_roll_type(EasyLootDB.settings.general_boe_rule), 330, -60, "GeneralBoEDropdown", "general_boe_rule")
+  local boeRuleDropdown = CreateDropdown(EasyLootConfigFrame, "General BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.general_boe_rule], 330, -60, "GeneralBoEDropdown", "general_boe_rule")
   local passOnGreysCheckbox = CreateCheckbox("Pass on Greys", 330, -100, "pass_greys", "Do not loot grey items.")
   local onlyHolyCheckbox = CreateCheckbox("Holy Water Only", 330, -130, "only_holy", "Only loot holy water from Stratholme Chests.")
   local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -160, "auto_invite", "Always accept invites from friends or guild members.")
@@ -788,9 +801,41 @@ function EasyLoot:CreateConfig()
       -- create the add and remove items dialogues
       local info = {}  -- Create a new info table for each dropdown entry
       info.text = "Add New item"  -- The text displayed in the dropdown
-      info.func = function () 
-        local foo = StaticPopup_Show("ADD_ITEM_NAME", label)
-        foo.data = items
+      info.func = function ()
+        local add = StaticPopup_Show("ADD_ITEM_NAME", label)
+        add.data = items
+        local editbox = getglobal(add:GetName().."EditBox")
+
+        local orig_ContainerFrameItemButton_OnClick = (function ()
+          local orig = ContainerFrameItemButton_OnClick
+          ContainerFrameItemButton_OnClick = function (button,ignoreModifiers,a3,a4,a5,a6,a7,a8,a9,a10)
+            if (button == "LeftButton" and IsShiftKeyDown() and not ignoreModifiers and editbox:IsShown()) then
+                editbox:Insert(ItemLinkToName(GetContainerItemLink(this:GetParent():GetID(), this:GetID())))
+            else
+              orig(button,ignoreModifiers,a3,a4,a5,a6,a7,a8,a9,a10)
+            end
+          end
+          return orig
+        end)()
+
+        local orig_ChatFrame_OnHyperlinkShow = (function ()
+          local orig = ChatFrame_OnHyperlinkShow
+          ChatFrame_OnHyperlinkShow = function (link,text,button,a3,a4,a5,a6,a7,a8,a9,a10)
+            -- print(chatFrame)
+            if (button == "LeftButton" and IsShiftKeyDown() and not ignoreModifiers and editbox:IsShown()) then
+              editbox:Insert(ItemLinkToName(text))
+            else
+              orig(link,text,button,a3,a4,a5,a6,a7,a8,a9,a10)
+            end
+          end
+          return orig
+        end)()
+
+        add:SetScript("OnHide", function()
+          getglobal(this:GetName() .. "EditBox"):SetText("")
+          ContainerFrameItemButton_OnClick = orig_ContainerFrameItemButton_OnClick
+          ChatFrame_OnHyperlinkShow = orig_ChatFrame_OnHyperlinkShow
+        end)
       end
       info.textR = 0.1
       info.textG = 0.8
