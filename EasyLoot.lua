@@ -505,6 +505,43 @@ function EasyLoot:LOOT_CLOSED()
   -- binds = {}
 end
 
+------------------------------
+-- Other Functions
+------------------------------
+
+-- add a purchase list as well, let people link an item to add it if needed
+-- e.g.: 20 [Sacred Candle]
+
+-- toggle enemy nameplates on in combat, turn off after
+function EasyLoot:TogglePlates()
+  self.plate_state = self.plate_state or false
+  if self.plate_state then
+    ShowNameplates()
+  else
+    HideNameplates()
+  end
+  self.plate_state = not self.plate_state
+end
+
+function EasyLoot:PLAYER_REGEN_ENABLED()
+  -- if EasyLootDB.settings.plates then TogglePlates() end
+end
+
+function EasyLoot:PLAYER_REGEN_DISABLED()
+  -- if EasyLootDB.settings.plates then TogglePlates() end
+end
+
+
+function EasyLoot:Dismount(msg)
+end
+
+function EasyLoot:UI_ERROR_MESSAGE(msg)
+  -- UIErrorsFrame:Clear()
+  -- if string.find(arg1, "mounted") then EasyLoot:Dismount() end
+end
+
+------------------------------
+
 -- Register the ADDON_LOADED event
 EasyLoot:RegisterEvent("ADDON_LOADED")
 EasyLoot:SetScript("OnEvent", function ()
@@ -542,6 +579,7 @@ function EasyLoot:ADDON_LOADED(addon)
   EasyLoot:RegisterEvent("GOSSIP_SHOW")
   EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
   EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
+  EasyLoot:RegisterEvent("UI_ERROR_MESSAGE")
 
   -- hook away superapi's autoloot functionality and set autloot to off since this handles it
   if IfShiftAutoloot then
