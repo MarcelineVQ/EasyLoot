@@ -141,8 +141,31 @@ function deepcopy(original)
   return copy
 end
 
+-- Function to return an iterator that sorts a table by its keys (low to high)
+function ixpairs(t)
+  -- Create a list of keys
+  local keys = {}
+  for k in pairs(t) do
+      table.insert(keys, k)
+  end
+
+  -- Sort the keys
+  table.sort(keys)
+
+  -- Iterator function
+  local i = 0
+  return function()
+      i = i + 1
+      local key = keys[i]
+      if key then
+          return key, t[key]
+      end
+  end
+end
+
 -- don't skip trainer, they're often used for untalenting
-local gossips = { "taxi", --[["trainer",--]] "battlemaster", "vendor", "banker" }
+-- skip spirit healer, it has a confirmation anyway
+local gossips = { "taxi", --[["trainer",--]] "battlemaster", "vendor", "banker", "healer" }
 local gossips_skip_lines = {
   bwl = "my hand on the orb",
   nef1 = "made no mistakes",
@@ -533,10 +556,10 @@ end
 
 -- lazypigs
 function EasyLoot:AcceptGroupInvite()
-	AcceptGroup();
-	StaticPopup_Hide("PARTY_INVITE");
-	PlaySoundFile("Sound\\Doodad\\BellTollNightElf.wav");
-	UIErrorsFrame:AddMessage("Group Auto Accept");
+	AcceptGroup()
+	StaticPopup_Hide("PARTY_INVITE")
+	PlaySoundFile("Sound\\Doodad\\BellTollNightElf.wav")
+	UIErrorsFrame:AddMessage("Group Auto Accept")
 end
 
 function EasyLoot:PARTY_INVITE_REQUEST(who)
@@ -545,7 +568,6 @@ function EasyLoot:PARTY_INVITE_REQUEST(who)
   end
 end
 
--- lazypigs
 function EasyLoot:MERCHANT_SHOW()
   if not EasyLootDB.settings.auto_repair or not CanMerchantRepair() or IsControlKeyDown() then return end
   local rcost = GetRepairAllCost()
@@ -555,9 +577,10 @@ function EasyLoot:MERCHANT_SHOW()
       return
     end
     RepairAllItems()
-    local COLOR_GOLD   = format("|cffffd700%dg|r",rcost/100/100)
-    local COLOR_SILVER = format("|cffc7c7cf%ds|r",math.mod(rcost/100,100))
-    local COLOR_COPPER = format("|cffeda55f%dc|r",math.mod(rcost,100))
+    local gcost,scost,ccost = rcost/100/100,math.mod(rcost/100,100),math.mod(rcost,100)
+    local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
+    local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
+    local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
     el_print(format("Equipment repaired for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
   end
 end
@@ -626,7 +649,7 @@ function EasyLoot:CreateConfig()
       end
   end
 
-  -- Dropdown creation function (as per your provided working code)
+  -- Dropdown creation function
   local function CreateDropdown(parent, label, items, defaultValue, x, y, name, setting)
       local dropdown = CreateFrame("Button", name, parent, "UIDropDownMenuTemplate")  -- Name the frame properly
       -- dropdown:SetPoint("TOPLEFT", x, y)
@@ -651,7 +674,7 @@ function EasyLoot:CreateConfig()
 
       -- Manual initialization for the dropdown
       local function InitializeDropdown()
-          for i, item in ipairs(items) do  -- Using ipairs for iteration
+          for i, item in ixpairs(items) do
               local info = {}  -- Create a new info table for each dropdown entry
               info.text = item  -- The text displayed in the dropdown
               info.value = item -- The value stored when the item is selected
@@ -858,7 +881,7 @@ function EasyLoot:CreateConfig()
       info.textB = 0.2
       UIDropDownMenu_AddButton(info)  -- Add the dropdown option to the list
 
-      for i, item in ipairs(items) do  -- Using ipairs for iteration
+      for i, item in ixpairs(items) do
           local info = {}  -- Create a new info table for each dropdown entry
           info.text = item  -- The text displayed in the dropdown
           info.value = item -- The value stored when the item is selected
@@ -883,7 +906,7 @@ end
 
 -- Function to remove item from dropdown
 local function RemoveItemFromDropdown(dropdown_list, item)
-  for i,name in ipairs(dropdown_list) do
+  for i,name in pairs(dropdown_list) do
     if name == item then
       table.remove(dropdown_list,i)
       el_print("Removed item: "..item.." from whitelist.")
