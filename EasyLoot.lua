@@ -625,6 +625,10 @@ end
 
 function EasyLoot:GOSSIP_SHOW()
   if not EasyLootDB.settings.auto_gossip or IsControlKeyDown() then return end
+  -- brainwasher is weird, skip it
+  if UnitName("npc") == "Goblin Brainwashing Device" then
+    return
+  end
 
   -- If there's something more to do than just gossip, don't automate
   if GetGossipAvailableQuests() or GetGossipActiveQuests() then return end
@@ -635,12 +639,13 @@ function EasyLoot:GOSSIP_SHOW()
     table.insert(t2, { text = t[i], gossip = t[i+1] })
   end
   for i,entry in ipairs(t2) do
-    if elem(gossips, entry.gossip) then SelectGossipOption(i) end
+    if elem(gossips, entry.gossip) then
+      SelectGossipOption(i); break
+    end
     if entry.gossip == "gossip" then
       for _,line in gossips_skip_lines do
         if string.find(entry.text, line) then
-          SelectGossipOption(i)
-          break
+          SelectGossipOption(i); break
         end
       end
     end
