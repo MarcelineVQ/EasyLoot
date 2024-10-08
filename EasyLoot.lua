@@ -284,10 +284,11 @@ local default_settings = {
 
   pass_greys = false,
   only_holy = false,
-  general_boe_rule = OFF,
+  general_boe_rule = GREED,
   auto_repair = true,
   auto_invite = true,
   auto_gossip = true,
+  auto_dismount = true,
 }
 
 local default_need_list = {
@@ -531,13 +532,38 @@ function EasyLoot:PLAYER_REGEN_DISABLED()
   -- if EasyLootDB.settings.plates then TogglePlates() end
 end
 
+local elTooltip = CreateFrame("GameTooltip", "elTooltip", UIParent, "GameTooltipTemplate")
+function EasyLoot:Dismount()
+  -- do dismount
+  -- increases speed -- search for speed based on
+  local counter = -1
+  local speed = "^Increases speed based"
+  local turtle = "^Slow and steady"
+  while true do
+    counter = counter + 1
+    local index, untilCancelled = GetPlayerBuff(counter)
+    if index == -1 then break end
+    if untilCancelled then
+      elTooltip:SetOwner(UIParent, "ANCHOR_PRESERVE")
+      elTooltip:SetPlayerBuff(index)
 
-function EasyLoot:Dismount(msg)
+      local desc = elTooltipTextLeft2:GetText()
+      if desc then
+        if string.find(desc, speed) or string.find(desc, turtle) then
+          CancelPlayerBuff(counter)
+          return
+        end
+      end
+    end
+  end
 end
 
 function EasyLoot:UI_ERROR_MESSAGE(msg)
-  -- UIErrorsFrame:Clear()
-  -- if string.find(arg1, "mounted") then EasyLoot:Dismount() end
+  if not EasyLootDB.settings.auto_dismount then return end
+  if string.find(arg1, "mounted") then
+    UIErrorsFrame:Clear()
+    EasyLoot:Dismount()
+  end
 end
 
 ------------------------------
@@ -562,6 +588,7 @@ function EasyLoot:Load()
   EasyLootDB.settings.auto_invite = (EasyLootDB.settings.auto_invite == nil) and default_settings.auto_invite or EasyLootDB.settings.auto_invite
   EasyLootDB.settings.auto_gossip = (EasyLootDB.settings.auto_gossip == nil) and default_settings.auto_gossip or EasyLootDB.settings.auto_gossip
   EasyLootDB.settings.only_holy = (EasyLootDB.settings.only_holy == nil) and default_settings.only_holy or EasyLootDB.settings.only_holy
+  EasyLootDB.settings.auto_dismount = (EasyLootDB.settings.auto_dismount == nil) and default_settings.auto_dismount or EasyLootDB.settings.auto_dismount
 
 end
 
@@ -819,6 +846,7 @@ function EasyLoot:CreateConfig()
   local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -160, "auto_invite", "Always accept invites from friends or guild members.")
   local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -190, "auto_repair", "Repair at any valid vendor (hold Ctrl to disable).")
   local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -220, "auto_gossip", "Automatically choose the most common gossip options (hold Ctrl to disable).")
+  local autoDismountCheckbox = CreateCheckbox("Auto-Dismount", 330, -250, "auto_dismount", "Automatically dismount when trying to use actions on a mount.")
 
   ------------------------------------
 
