@@ -604,6 +604,7 @@ function EasyLoot:ADDON_LOADED(addon)
   EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
   EasyLoot:RegisterEvent("MERCHANT_SHOW")
   EasyLoot:RegisterEvent("GOSSIP_SHOW")
+  EasyLoot:RegisterEvent("ITEM_TEXT_BEGIN")
   EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
   EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
   EasyLoot:RegisterEvent("UI_ERROR_MESSAGE")
@@ -650,6 +651,28 @@ function EasyLoot:MERCHANT_SHOW()
   end
 end
 
+function EasyLoot:ITEM_TEXT_BEGIN()
+  if IsControlKeyDown() then return end
+  if ItemTextGetItem() ~= "Altar of Zanza" then return end
+
+  for bag = 0, 4 do
+    for slot = 1, GetContainerNumSlots(bag) do
+      local l = GetContainerItemLink(bag,slot)
+      if l then
+        _,_,itemId = string.find(l,"item:(%d+)")
+        local name,_link,_,_lvl,_type,subtype = GetItemInfo(itemId)
+        if string.find(name,".- Hakkari Bijou") then
+          UseContainerItem(bag, slot)
+          CloseItemText()
+          return
+        end
+      end
+    end
+  end
+  el_print("No Bijou found in inventory.")
+  CloseItemText()
+end
+
 function EasyLoot:GOSSIP_SHOW()
   if not EasyLootDB.settings.auto_gossip or IsControlKeyDown() then return end
   -- brainwasher is weird, skip it
@@ -665,10 +688,16 @@ function EasyLoot:GOSSIP_SHOW()
   for i=1,tsize(t),2 do
     table.insert(t2, { text = t[i], gossip = t[i+1] })
   end
+
+  -- only one option, and not a gossip? click it
+  if t2[1] and not t2[2] and t2[1].gossip ~= "gossip" then SelectGossipOption(1) end
+
   for i,entry in ipairs(t2) do
+    -- check for dialogue types we'd always want to click
     if elem(gossips, entry.gossip) then
       SelectGossipOption(i); break
     end
+    -- check for specific gossips to skip
     if entry.gossip == "gossip" then
       for _,line in gossips_skip_lines do
         if string.find(entry.text, line) then

@@ -1,4 +1,4 @@
-# EasyLoot 1.3.0
+# EasyLoot 1.4.0
 Automatic loot rules for instances and groups. Have loot handle itself.  
 ---
 `/easyloot` for in game options.  
@@ -12,6 +12,7 @@ Features:
 * Auto-accept invite option.  
 * Automation of many common gossip actions.  
 * Shift-Click to **not** autoloot a mob.
+* Automatically turn in Bijou by click on Altar of Zanza.  
 
 Get quest completion with [QuestRepeat](https://github.com/MarcelineVQ/QuestRepeat) 
 
