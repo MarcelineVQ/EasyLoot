@@ -168,11 +168,16 @@ end
 local gossips = { "taxi", --[["trainer",--]] "battlemaster", "vendor", "banker", "healer" }
 local gossips_skip_lines = {
   bwl = "my hand on the orb",
+  mc = "me to the Molten Core",
+  wv = "Happy Winter Veil",
   nef1 = "made no mistakes",
   nef2 = "have lost your mind",
-  mc = "me to the Molten Core",
   rag1 = "challenged us and we have come",
   rag2 = "else do you have to say",
+  ironbark = "Thank you, Ironbark.",
+  pusilin1 = "Game ? Are you crazy ?",
+  pusilin2 = "Why you little",
+  pusilin3 = "DIE!",
 }
 
 ------------------------------
@@ -289,6 +294,7 @@ local default_settings = {
   auto_invite = true,
   auto_gossip = true,
   auto_dismount = true,
+  auto_stand = true,
 }
 
 local default_need_list = {
@@ -559,10 +565,13 @@ function EasyLoot:Dismount()
 end
 
 function EasyLoot:UI_ERROR_MESSAGE(msg)
-  if not EasyLootDB.settings.auto_dismount then return end
-  if string.find(arg1, "mounted") then
-    UIErrorsFrame:Clear()
+  if EasyLootDB.settings.auto_dismount and string.find(arg1, "mounted") then
     EasyLoot:Dismount()
+    UIErrorsFrame:Clear()
+  end
+  if EasyLootDB.settings.auto_stand and string.find(arg1, "must be standing") then
+    SitOrStand()
+    UIErrorsFrame:Clear()
   end
 end
 
@@ -589,6 +598,7 @@ function EasyLoot:Load()
   EasyLootDB.settings.auto_gossip = (EasyLootDB.settings.auto_gossip == nil) and default_settings.auto_gossip or EasyLootDB.settings.auto_gossip
   EasyLootDB.settings.only_holy = (EasyLootDB.settings.only_holy == nil) and default_settings.only_holy or EasyLootDB.settings.only_holy
   EasyLootDB.settings.auto_dismount = (EasyLootDB.settings.auto_dismount == nil) and default_settings.auto_dismount or EasyLootDB.settings.auto_dismount
+  EasyLootDB.settings.auto_stand = (EasyLootDB.settings.auto_stand == nil) and default_settings.auto_stand or EasyLootDB.settings.auto_stand
 
 end
 
@@ -871,11 +881,12 @@ function EasyLoot:CreateConfig()
   -- Additional options checkboxes
   local boeRuleDropdown = CreateDropdown(EasyLootConfigFrame, "General BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.general_boe_rule], 330, -60, "GeneralBoEDropdown", "general_boe_rule")
   local passOnGreysCheckbox = CreateCheckbox("Pass on Greys", 330, -100, "pass_greys", "Do not loot grey items.")
-  local onlyHolyCheckbox = CreateCheckbox("Holy Water Only", 330, -130, "only_holy", "Only loot holy water from Stratholme Chests.")
-  local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -160, "auto_invite", "Always accept invites from friends or guild members.")
-  local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -190, "auto_repair", "Repair at any valid vendor (hold Ctrl to disable).")
-  local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -220, "auto_gossip", "Automatically choose the most common gossip options (hold Ctrl to disable).")
-  local autoDismountCheckbox = CreateCheckbox("Auto-Dismount", 330, -250, "auto_dismount", "Automatically dismount when trying to use actions on a mount.")
+  local onlyHolyCheckbox = CreateCheckbox("Holy Water Only", 330, -125, "only_holy", "Only loot holy water from Stratholme Chests.")
+  local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -150, "auto_invite", "Always accept invites from friends or guild members.")
+  local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -175, "auto_repair", "Repair at any valid vendor (hold Ctrl to disable).")
+  local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -200, "auto_gossip", "Automatically choose the most common gossip options (hold Ctrl to disable).")
+  local autoDismountCheckbox = CreateCheckbox("Auto-Dismount", 330, -225, "auto_dismount", "Automatically dismount when trying to use actions on a mount.")
+  local autoStandCheckbox = CreateCheckbox("Auto-Stand", 330, -250, "auto_stand", "Automatically stant when trying to use actions while sitting.")
 
   ------------------------------------
 
