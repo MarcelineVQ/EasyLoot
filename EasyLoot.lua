@@ -429,7 +429,7 @@ if pfUI and pfUI.loot then
 end
 
 function EasyLoot:LOOT_OPENED()
-  if IsShiftKeyDown() then -- toggle autolooting
+  if IsShiftKeyDown() then -- skip autolooting
     orig_pfUI_UpdateLootFrame()
     return
   end
@@ -459,15 +459,15 @@ function EasyLoot:LOOT_OPENED()
       local is_container = not (UnitExists("target") and UnitIsDead("target")) -- best we can do
 
       -- determine loot to skip
-      if r == OFF or r == PASS then
-        -- item handler determined this isn't loot to consider
-        if in_explicit_list and (r == PASS) then
-          -- loot is on our pass list
-          debug_print("passlist "..item)
-        end
+      if in_explicit_list and (r == PASS) then
+        -- loot is on our pass list
+        debug_print("passlist "..item)
       elseif (quality == 0 and EasyLootDB.settings.pass_greys) and not (r > 0 and in_explicit_list) then
         -- do nothing, unless it's a whitelist item
         debug_print("passgrey " .. item)
+      elseif (r == OFF or r == PASS) and InGroup() then
+        -- item handler determined this isn't loot to consider and we're in group
+        debug_print("passgroup "..item)
 
       -- if we are looting from a chest, ignore further loot rules
       elseif is_container then
@@ -490,6 +490,10 @@ function EasyLoot:LOOT_OPENED()
         debug_print("masterloot on "..item)
 
       -- finally loot whatever wasn't handled above
+      -- elseif not InGroup() then
+      --   -- we're alone and we've check the skiplist already, loot
+      --   debug_print("aloneloot "..item)
+      --   LootSlot(slot,true)
       else
         debug_print("looting "..item)
         LootSlot(slot,true)
@@ -599,7 +603,7 @@ function EasyLoot:Load()
   EasyLootDB.settings.only_holy = (EasyLootDB.settings.only_holy == nil) and default_settings.only_holy or EasyLootDB.settings.only_holy
   EasyLootDB.settings.auto_dismount = (EasyLootDB.settings.auto_dismount == nil) and default_settings.auto_dismount or EasyLootDB.settings.auto_dismount
   EasyLootDB.settings.auto_stand = (EasyLootDB.settings.auto_stand == nil) and default_settings.auto_stand or EasyLootDB.settings.auto_stand
-
+  -- todo, add auto shapeshift removal
 end
 
 function EasyLoot:ADDON_LOADED(addon)
@@ -622,6 +626,12 @@ function EasyLoot:ADDON_LOADED(addon)
   -- hook away superapi's autoloot functionality and set autloot to off since this handles it
   if IfShiftAutoloot then
     IfShiftAutoloot = function () return end
+  end
+  -- other method
+  if SuperAPI then
+    SuperAPI.IfShiftAutoloot = function () SetAutoloot(0) end
+    SuperAPI.IfShiftNoAutoloot = function () SetAutoloot(0) end
+    -- SuperAPI.frame:SetScript("OnUpdate", nil)
   end
   if SetAutoloot then
     SetAutoloot(0)
