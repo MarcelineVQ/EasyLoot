@@ -178,6 +178,8 @@ local gossips_skip_lines = {
   pusilin1 = "Game ? Are you crazy ?",
   pusilin2 = "Why you little",
   pusilin3 = "DIE!",
+  meph = "Touch the Portal",
+  kara = "Teleport me back to Kara",
 }
 
 ------------------------------
