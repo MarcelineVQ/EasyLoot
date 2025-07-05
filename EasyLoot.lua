@@ -105,8 +105,8 @@ end
 local function fuzzy_elem(t,item)
   if type(item) == "string" then
     item = string.lower(item)
-    for _,k in pairs(t) do
-      if string.find(string.lower(k),item) then
+    for _,v in pairs(t) do
+      if string.find(string.lower(v),item,nil,false) then -- false, don't use regex
         return true
       end
     end
@@ -174,12 +174,14 @@ local gossips_skip_lines = {
   nef2 = "have lost your mind",
   rag1 = "challenged us and we have come",
   rag2 = "else do you have to say",
-  ironbark = "Thank you, Ironbark.",
-  pusilin1 = "Game ? Are you crazy ?",
+  ironbark = "Thank you, Ironbark",
+  pusilin1 = "Game %? Are you crazy %?",
   pusilin2 = "Why you little",
   pusilin3 = "DIE!",
   meph = "Touch the Portal",
   kara = "Teleport me back to Kara",
+  mizzle1 = "^I'm the new king%?",
+  mizzle2 = "^It's good to be King!",
 }
 
 ------------------------------
@@ -758,7 +760,7 @@ function EasyLoot:CreateConfig()
   -- Title text
   local title = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   title:SetPoint("TOP", 0, -20)
-  title:SetText("EasyLoot Configuration")
+  title:SetText("EasyLoot " .. GetAddOnMetadata("EasyLoot","Version") .. " Configuration")
 
   -- Function to toggle the config frame
   SLASH_EASYLOOT1 = "/easyloot"
