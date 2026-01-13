@@ -327,57 +327,57 @@ local item_classes = {
 }
 
 -- Determine what kind of roll we want for the item and do the pass, or roll of need or greed
--- returns the roll type and if it was in an explicit list
+-- returns the roll type, if it was in an explicit list, and if it's a BoE item
 function EasyLoot:HandleItem(name,explicit_only)
   -- check specific lists first
   if fuzzy_elem(EasyLootDB.needlist,name) then
-    return NEED,true
+    return NEED,true,false
   elseif fuzzy_elem(EasyLootDB.greedlist,name) then
-    return GREED,true
+    return GREED,true,false
   elseif fuzzy_elem(EasyLootDB.passlist,name) then
-    return PASS,true
+    return PASS,true,false
   end
 
-  if explicit_only then return OFF end
+  if explicit_only then return OFF,false,false end
   -- now check more general things like zone items:
   if GetRealZoneText() == "Zul'Gurub" then
     if elem(zg_coin,name) then
-      return EasyLootDB.settings.zg_coin
+      return EasyLootDB.settings.zg_coin,false,false
     elseif elem(zg_bijou,name) then
-      return EasyLootDB.settings.zg_bijou
+      return EasyLootDB.settings.zg_bijou,false,false
     else
-      return EasyLootDB.settings.zg_boe
+      return EasyLootDB.settings.zg_boe,false,true
     end
   elseif GetRealZoneText() == "Ruins of Ahn'Qiraj" then
     if elem(scarab,name) then
-      return EasyLootDB.settings.aq20_scarab
+      return EasyLootDB.settings.aq20_scarab,false,false
     elseif elem(idol_aq20,name) then
-      return EasyLootDB.settings.aq20_idol
+      return EasyLootDB.settings.aq20_idol,false,false
     else
-      return EasyLootDB.settings.aq20_boe
+      return EasyLootDB.settings.aq20_boe,false,true
     end
   elseif GetRealZoneText() == "Molten Core" then
     if elem(mc_mat,name) then
-      return EasyLootDB.settings.mc_mat
+      return EasyLootDB.settings.mc_mat,false,false
     else
-      return EasyLootDB.settings.mc_boe
+      return EasyLootDB.settings.mc_boe,false,true
     end
   elseif GetRealZoneText() == "Ahn'Qiraj" then
     if elem(scarab,name) then
-      return EasyLootDB.settings.aq40_scarab
+      return EasyLootDB.settings.aq40_scarab,false,false
     elseif elem(idol_aq40,name) then
-      return EasyLootDB.settings.aq40_idol
+      return EasyLootDB.settings.aq40_idol,false,false
     else
-      return EasyLootDB.settings.aq40_boe
+      return EasyLootDB.settings.aq40_boe,false,true
     end
   elseif GetRealZoneText() == "Naxxramas" then
     if elem(scrap,name) then
-      return EasyLootDB.settings.naxx_scrap
+      return EasyLootDB.settings.naxx_scrap,false,false
     else
-      return EasyLootDB.settings.naxx_boe
+      return EasyLootDB.settings.naxx_boe,false,true
     end
   else
-    return EasyLootDB.settings.general_boe_rule
+    return EasyLootDB.settings.general_boe_rule,false,true
   end
 end
 
@@ -459,7 +459,7 @@ function EasyLoot:LOOT_OPENED()
     elseif LootSlotIsItem(slot) then
       local loot_method = GetLootMethod()
       local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
-      local r,in_explicit_list = EasyLoot:HandleItem(item)
+      local r,in_explicit_list,is_boe = EasyLoot:HandleItem(item)
       local is_container = not (UnitExists("target") and UnitIsDead("target")) -- best we can do
 
       -- determine loot to skip
@@ -469,10 +469,9 @@ function EasyLoot:LOOT_OPENED()
       elseif (quality == 0 and EasyLootDB.settings.pass_greys) and not (r > 0 and in_explicit_list) then
         -- do nothing, unless it's a whitelist item
         debug_print("passgrey " .. item)
-      elseif (r == OFF or r == PASS) and InGroup() then
-        -- item handler determined this isn't loot to consider and we're in group
+      elseif (r == OFF or r == PASS) and InGroup() and not is_boe then
+        -- non-BoE item set to pass/off in group, skip looting (e.g. coins, bijous, scarabs)
         debug_print("passgroup "..item)
-
       -- if we are looting from a chest, ignore further loot rules
       elseif is_container then
         -- container
@@ -636,8 +635,7 @@ function EasyLoot:ADDON_LOADED(addon)
     SuperAPI.IfShiftAutoloot = function () SetAutoloot(0) end
     SuperAPI.IfShiftNoAutoloot = function () SetAutoloot(0) end
     -- SuperAPI.frame:SetScript("OnUpdate", nil)
-  end
-  if SetAutoloot then
+  elseif SetAutoloot then -- superwow but no superapi
     SetAutoloot(0)
   end
 
