@@ -1022,8 +1022,7 @@ function EasyLoot:CreateConfig()
           el_print("Select an item to remove first.")
         else
           local pop = StaticPopup_Show("REM_ITEM_NAME", dropdown.selected, label)
-          pop.data = { items, dropdown.selected}
-          dropdown.selected = nil
+          pop.data = { items, dropdown.selected, dropdown }
         end
       end
       info.textR = 0.8
@@ -1161,6 +1160,8 @@ StaticPopupDialogs["REM_ITEM_NAME"] = {
   hideOnEscape = true,
   OnAccept = function(data)
     RemoveItemFromDropdown(data[1], data[2])
+    data[3].selected = nil
+    UIDropDownMenu_SetText("", data[3])
   end,
 }
 
