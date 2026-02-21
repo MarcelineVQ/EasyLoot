@@ -640,6 +640,16 @@ function EasyLoot:ADDON_LOADED(addon)
   end
 
   EasyLoot:CreateConfig()
+
+  -- Restore saved frame position (must be after CreateConfig)
+  if EasyLootDB.position then
+    EasyLootConfigFrame:ClearAllPoints()
+    EasyLootConfigFrame:SetPoint(
+      EasyLootDB.position.point, UIParent,
+      EasyLootDB.position.relPoint,
+      EasyLootDB.position.x, EasyLootDB.position.y
+    )
+  end
 end
 
 -- lazypigs
@@ -747,6 +757,17 @@ function EasyLoot:CreateConfig()
   })
   EasyLootConfigFrame:Hide()
 
+  -- Make the frame draggable
+  EasyLootConfigFrame:SetMovable(true)
+  EasyLootConfigFrame:EnableMouse(true)
+  EasyLootConfigFrame:RegisterForDrag("LeftButton")
+  EasyLootConfigFrame:SetScript("OnDragStart", function() this:StartMoving() end)
+  EasyLootConfigFrame:SetScript("OnDragStop", function()
+    this:StopMovingOrSizing()
+    local point, _, relPoint, x, y = this:GetPoint()
+    EasyLootDB.position = { point = point, relPoint = relPoint, x = x, y = y }
+  end)
+
   -- Add a close button
   local closeButton = CreateFrame("Button", nil, EasyLootConfigFrame, "UIPanelCloseButton")
   closeButton:SetPoint("TOPRIGHT", EasyLootConfigFrame, "TOPRIGHT", -5, -5)
@@ -762,8 +783,14 @@ function EasyLoot:CreateConfig()
 
   -- Function to toggle the config frame
   SLASH_EASYLOOT1 = "/easyloot"
-  SlashCmdList["EASYLOOT"] = function()
-      if EasyLootConfigFrame:IsShown() then
+  SlashCmdList["EASYLOOT"] = function(msg)
+      if msg == "reset" then
+          EasyLootConfigFrame:ClearAllPoints()
+          EasyLootConfigFrame:SetPoint("CENTER", UIParent, "CENTER")
+          EasyLootDB.position = nil
+          el_print("Frame position reset.")
+          if not EasyLootConfigFrame:IsShown() then EasyLootConfigFrame:Show() end
+      elseif EasyLootConfigFrame:IsShown() then
           EasyLootConfigFrame:Hide()
       else
           EasyLootConfigFrame:Show()
@@ -1038,6 +1065,9 @@ local function RemoveItemFromDropdown(dropdown_list, item)
   end
 end
 
+-- Hidden fontstring for measuring edit box text width (EditBox lacks GetStringWidth in 1.12)
+local _popupMeasureFS = UIParent:CreateFontString(nil, "ARTWORK", "ChatFontNormal")
+
 -- Static Popup Dialog for entering item names
 StaticPopupDialogs["ADD_ITEM_NAME"] = {
   text = "Add item to %s:",
@@ -1054,18 +1084,70 @@ StaticPopupDialogs["ADD_ITEM_NAME"] = {
     end
   end,
   EditBoxOnEnterPressed = function(dropdownIndex)
-    -- print(dropdownIndex)
     local itemName = this:GetText()
     if itemName ~= "" then
       AddItemToDropdown(dropdownIndex, itemName)
-      this:GetParent():Hide() -- Close the dialog
+      this:GetParent():Hide()
+    end
+  end,
+  EditBoxOnTextChanged = function()
+    local popup = this:GetParent()
+    _popupMeasureFS:SetText(this:GetText())
+    local textWidth = _popupMeasureFS:GetStringWidth()
+    local editBase = 240
+    local popupBase = 420
+    local overflow = textWidth - editBase + 20
+    if overflow > 0 then
+      popup:SetWidth(popupBase + overflow)
+      this:SetWidth(editBase + overflow)
+      if this._borderLeft then
+        local newWidth = this._borderLeftWidth + (editBase - 130) + overflow
+        this._borderLeft:SetWidth(newWidth)
+        this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+      end
+    else
+      popup:SetWidth(popupBase)
+      this:SetWidth(editBase)
+      if this._borderLeft then
+        local newWidth = this._borderLeftWidth + (editBase - 130)
+        this._borderLeft:SetWidth(newWidth)
+        this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+      end
     end
   end,
   OnShow = function()
-    getglobal(this:GetName() .. "EditBox"):SetFocus()
+    local editbox = getglobal(this:GetName() .. "EditBox")
+    -- Cache left border texture via GetRegions (same pattern as pfUI nameplates)
+    if not editbox._borderLeft then
+      for _, region in pairs({editbox:GetRegions()}) do
+        if region.GetTexture and region:GetTexture()
+           and string.find(region:GetTexture(), "Left") then
+          editbox._borderLeft = region
+          editbox._borderLeftWidth = region:GetWidth()
+          break
+        end
+      end
+    end
+    -- Reset to wider defaults
+    this:SetWidth(420)
+    editbox:SetWidth(240)
+    if editbox._borderLeft then
+      local newWidth = editbox._borderLeftWidth + (240 - 130)
+      editbox._borderLeft:SetWidth(newWidth)
+      editbox._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+    end
+    editbox:SetFocus()
   end,
   OnHide = function()
-    getglobal(this:GetName() .. "EditBox"):SetText("")
+    local editbox = getglobal(this:GetName() .. "EditBox")
+    -- Restore to Blizzard defaults
+    this:SetWidth(320)
+    editbox:SetWidth(130)
+    if editbox._borderLeft then
+      editbox._borderLeft:SetWidth(editbox._borderLeftWidth)
+      editbox._borderLeft:SetTexCoord(0, editbox._borderLeftWidth / 256, 0, 1)
+    end
+    editbox:SetText("")
   end,
   enterClicksFirstButton = true,
 }
