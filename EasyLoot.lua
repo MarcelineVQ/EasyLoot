@@ -260,6 +260,130 @@ local scrap = {
   "Wartorn Plate Scrap",
 }
 
+local mc_trash_bop = {
+  "Lavashard Axe",
+  "Boots of Blistering Flames",
+  "Core Forged Helmet",
+  "Lost Dark Iron Chain",
+  "Shoulderpads of True Flight",
+  "Ashskin Belt",
+}
+
+local bwl_trash_bop = {
+  "Doom's Edge",
+  "Band of Dark Dominion",
+  "Essence Gatherer",
+  "Draconic Maul",
+  "Cloak of Draconic Might",
+  "Boots of Pure Thought",
+  "Draconic Avenger",
+  "Ringo's Blizzard Boots",
+  "Interlaced Shadow Jerkin",
+}
+
+local aq40_trash_bop = {
+  "Shard of the Fallen Star",
+  "Gloves of the Redeemed Prophecy",
+  "Gloves of the Fallen Prophet",
+  "Anubisath Warhammer",
+  "Ritssyn's Ring of Chaos",
+  "Neretzek, The Blood Drinker",
+  "Gloves of the Immortal",
+  "Garb of Royal Ascension",
+}
+
+local naxx_trash_bop = {
+  "Ring of the Eternal Flame",
+  "Misplaced Servo Arm",
+  "Ghoul Skin Tunic",
+  "Necro-Knight's Garb",
+  "Stygian Buckler",
+  "Harbinger of Doom",
+  "Spaulders of the Grand Crusader",
+  "Leggings of the Grand Crusader",
+  "Leggings of Elemental Fury",
+  "Girdle of Elemental Fury",
+  "Belt of the Grand Crusader",
+}
+
+local es_trash_bop = {
+  "Lucid Nightmare",
+  "Corrupted Reed",
+  "Verdant Dreamer's Boots",
+  "Nature's Gift",
+  "Lasher's Whip",
+  "Infused Wildthorn Bracers",
+  "Sleeper's Ring",
+  "Emerald Rod",
+}
+
+local kara_trash_bop = {
+  "Slivers of Nullification",
+  "The End of All Ambitions",
+  "Ques' Gauntlets of Precision",
+  "Boots of Elemental Fury",
+  "Gauntlets of Elemental Fury",
+  "Boots of the Grand Crusader",
+  "Gauntlets of the Grand Crusader",
+  "Dragunovi's Sash of Domination",
+  "Ring of Holy Light",
+  "Brand of Karazhan",
+}
+
+------------------------------
+-- Raid Config
+------------------------------
+
+local raid_config = {
+  { zone = "Zul'Gurub", short = "ZG", categories = {
+    { label = "Coins", items = zg_coin, key = "zg_coin", default = NEED },
+    { label = "Bijou", items = zg_bijou, key = "zg_bijou", default = NEED },
+    {},
+    { label = "BoE", key = "zg_boe", default = NEED, is_boe = true },
+  }},
+  { zone = "Ruins of Ahn'Qiraj", short = "AQ20", categories = {
+    { label = "Idols", items = idol_aq20, key = "aq20_idol", default = NEED },
+    { label = "Scarabs", items = scarab, key = "aq20_scarab", default = NEED },
+    {},
+    { label = "BoE", key = "aq20_boe", default = NEED, is_boe = true },
+  }},
+  { zone = "Molten Core", short = "MC", categories = {
+    { label = "Ingot", items = {"Sulfuron Ingot"}, key = "mc_ingot", default = OFF },
+    { label = "Mats", items = mc_mat, key = "mc_mat", default = OFF },
+    { label = "Trash BoPs", items = mc_trash_bop, key = "mc_trash", default = OFF },
+    { label = "BoE", key = "mc_boe", default = OFF, is_boe = true },
+  }},
+  { zone = "Blackwing Lair", short = "BWL", categories = {
+    { label = "Elementium", items = {}, key = "bwl_mat", default = OFF },
+    {},
+    { label = "Trash BoPs", items = bwl_trash_bop, key = "bwl_trash", default = OFF },
+    { label = "BoE", key = "bwl_boe", default = OFF, is_boe = true },
+  }},
+  { zone = "Emerald Sanctum", short = "ES", categories = {
+    { label = "Scales+Fading", items = {"Dreamscale", "Fading Dream Fragment"}, key = "es_mat", default = OFF },
+    {},
+    { label = "Trash BoPs", items = es_trash_bop, key = "es_trash", default = OFF },
+    { label = "BoE", key = "es_boe", default = OFF, is_boe = true },
+  }},
+  { zone = "Ahn'Qiraj", short = "AQ40", categories = {
+    { label = "Idols", items = idol_aq40, key = "aq40_idol", default = OFF },
+    { label = "Scarabs", items = scarab, key = "aq40_scarab", default = OFF },
+    { label = "Trash BoPs", items = aq40_trash_bop, key = "aq40_trash", default = OFF },
+    { label = "BoE", key = "aq40_boe", default = OFF, is_boe = true },
+  }},
+  { zone = "Naxxramas", short = "Naxx", categories = {
+    { label = "Scraps", items = scrap, key = "naxx_scrap", default = OFF },
+    {},
+    { label = "Trash BoPs", items = naxx_trash_bop, key = "naxx_trash", default = OFF },
+    { label = "BoE", key = "naxx_boe", default = OFF, is_boe = true },
+  }},
+  { zone = "Tower of Karazhan", aliases = {"The Rock of Desolation"}, short = "Kara40", categories = {
+    { label = "Pristine Ley Crystal", items = {"Pristine Ley Crystal"}, key = "kara_mat", default = OFF },
+    { label = "Overcharged Ley Energy", items = {"Overcharged Ley Energy"}, key = "kara_energy", default = OFF },
+    { label = "Trash BoPs", items = kara_trash_bop, key = "kara_trash", default = OFF },
+    { label = "BoE", key = "kara_boe", default = OFF, is_boe = true },
+  }},
+}
 
 ------------------------------
 -- Loot Functions
@@ -277,20 +401,6 @@ local function prettify_roll_type(roll_type)
 end
 
 local default_settings = {
-  zg_coin = NEED,
-  zg_bijou = NEED,
-  zg_boe = NEED,
-  aq20_scarab = NEED,
-  aq20_idol = NEED,
-  aq20_boe = NEED,
-  aq40_scarab = NEED,
-  aq40_idol = PASS,
-  aq40_boe = NEED,
-  naxx_scrap = PASS,
-  naxx_boe = NEED,
-  mc_mat = NEED,
-  mc_boe = NEED,
-
   pass_greys = false,
   only_holy = false,
   general_boe_rule = GREED,
@@ -300,6 +410,11 @@ local default_settings = {
   auto_dismount = true,
   auto_stand = true,
 }
+for _,raid in ipairs(raid_config) do
+  for _,cat in ipairs(raid.categories) do
+    if cat.key then default_settings[cat.key] = cat.default end
+  end
+end
 
 local default_need_list = {
   "Corrupted Sand",
@@ -314,18 +429,6 @@ local default_greed_list = {
 local default_pass_list = {
 }
 
-local item_classes = {
-  "Bijou",
-  "Coin",
-  "Scarab",
-  "IdolAQ20",
-  "IdolAQ40",
-  "ScrapCloth",
-  "ScrapLeather",
-  "ScrapChain",
-  "ScrapPlate",
-}
-
 -- Determine what kind of roll we want for the item and do the pass, or roll of need or greed
 -- returns the roll type, if it was in an explicit list, and if it's a BoE item
 function EasyLoot:HandleItem(name,explicit_only)
@@ -338,47 +441,29 @@ function EasyLoot:HandleItem(name,explicit_only)
     return PASS,true,false
   end
 
-  if explicit_only then return OFF,false,false end
-  -- now check more general things like zone items:
-  if GetRealZoneText() == "Zul'Gurub" then
-    if elem(zg_coin,name) then
-      return EasyLootDB.settings.zg_coin,false,false
-    elseif elem(zg_bijou,name) then
-      return EasyLootDB.settings.zg_bijou,false,false
-    else
-      return EasyLootDB.settings.zg_boe,false,true
+  -- check raid zone item lists (BoP items match explicit lists, BoE items also get fallback)
+  local zone = GetRealZoneText()
+  for _,raid in ipairs(raid_config) do
+    if raid.zone == zone or (raid.aliases and elem(raid.aliases, zone)) then
+      local boe_cat = nil
+      for _,cat in ipairs(raid.categories) do
+        if cat.is_boe then
+          boe_cat = cat
+        elseif cat.items and elem(cat.items, name) then
+          return EasyLootDB.settings[cat.key],false,false
+        end
+      end
+      -- BoP items that didn't match any explicit item list: don't auto-roll
+      if explicit_only then return OFF,false,false end
+      -- BoE fallback for the zone
+      if boe_cat then
+        return EasyLootDB.settings[boe_cat.key],false,true
+      end
+      return EasyLootDB.settings.general_boe_rule,false,true
     end
-  elseif GetRealZoneText() == "Ruins of Ahn'Qiraj" then
-    if elem(scarab,name) then
-      return EasyLootDB.settings.aq20_scarab,false,false
-    elseif elem(idol_aq20,name) then
-      return EasyLootDB.settings.aq20_idol,false,false
-    else
-      return EasyLootDB.settings.aq20_boe,false,true
-    end
-  elseif GetRealZoneText() == "Molten Core" then
-    if elem(mc_mat,name) then
-      return EasyLootDB.settings.mc_mat,false,false
-    else
-      return EasyLootDB.settings.mc_boe,false,true
-    end
-  elseif GetRealZoneText() == "Ahn'Qiraj" then
-    if elem(scarab,name) then
-      return EasyLootDB.settings.aq40_scarab,false,false
-    elseif elem(idol_aq40,name) then
-      return EasyLootDB.settings.aq40_idol,false,false
-    else
-      return EasyLootDB.settings.aq40_boe,false,true
-    end
-  elseif GetRealZoneText() == "Naxxramas" then
-    if elem(scrap,name) then
-      return EasyLootDB.settings.naxx_scrap,false,false
-    else
-      return EasyLootDB.settings.naxx_boe,false,true
-    end
-  else
-    return EasyLootDB.settings.general_boe_rule,false,true
   end
+  if explicit_only then return OFF,false,false end
+  return EasyLootDB.settings.general_boe_rule,false,true
 end
 
 -- 0 pass, 1 need, 2 greed
@@ -597,6 +682,14 @@ function EasyLoot:Load()
   EasyLootDB.passlist = EasyLootDB.passlist or default_pass_list
 
   EasyLootDB.settings = EasyLootDB.settings or default_settings
+  -- ensure all raid settings exist (for newly added raids)
+  for _,raid in ipairs(raid_config) do
+    for _,cat in ipairs(raid.categories) do
+      if cat.key and EasyLootDB.settings[cat.key] == nil then
+        EasyLootDB.settings[cat.key] = cat.default
+      end
+    end
+  end
   EasyLootDB.settings.general_boe_rule = EasyLootDB.settings.general_boe_rule or default_settings.general_boe_rule
   -- bool checked differently
   EasyLootDB.settings.pass_greys = (EasyLootDB.settings.pass_greys == nil) and default_settings.pass_greys or EasyLootDB.settings.pass_greys
@@ -839,53 +932,98 @@ function EasyLoot:CreateConfig()
       return dropdown
   end
 
-  -- Raid section: ZG
-  local zgLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  zgLabel:SetPoint("TOPLEFT", 30, -40)  
-  zgLabel:SetText("ZG")
+  -- Icon state definitions for raid loot toggles
+  local state_icons = {
+    [NEED]  = { tex = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = "Need" },
+    [GREED] = { tex = "Interface\\Buttons\\UI-GroupLoot-Coin-Up", label = "Greed" },
+    [PASS]  = { tex = "Interface\\Buttons\\UI-GroupLoot-Pass-Up", label = "Pass" },
+    [OFF]   = { tex = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = "Off", r = 0.15, g = 0.15, b = 0.15 },
+  }
+  local state_cycle = { [NEED] = GREED, [GREED] = PASS, [PASS] = OFF, [OFF] = NEED }
 
-  -- Horizontal layout for ZG
-  local zgCoinsDropdown = CreateDropdown(EasyLootConfigFrame, "Coins", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.zg_coin], 20, -60, "ZGCoinsDropdown", "zg_coin")
-  local zgBijouDropdown = CreateDropdown(EasyLootConfigFrame, "Bijou", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.zg_bijou], 110, -60, "ZGBijouDropdown", "zg_bijou")
-  local zgBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.zg_boe], 200, -60, "ZGBoEDropdown", "zg_boe")
+  local function CreateStateIcon(parent, cat, x, y)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetWidth(24)
+    btn:SetHeight(24)
+    btn:SetPoint("TOPLEFT", x, y)
 
-  -- Raid section: AQ20
-  local aq20Label = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  aq20Label:SetPoint("TOPLEFT", 30, -120)
-  aq20Label:SetText("AQ20")
+    local tex = btn:CreateTexture(nil, "ARTWORK")
+    tex:SetAllPoints()
 
-  -- Horizontal layout for AQ20
-  local aq20IdolsDropdown = CreateDropdown(EasyLootConfigFrame, "Idols", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq20_idol], 20, -140, "AQ20IdolsDropdown", "aq20_idol")
-  local aq20ScarabsDropdown = CreateDropdown(EasyLootConfigFrame, "Scarabs", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq20_scarab], 110, -140, "AQ20ScarabsDropdown", "aq20_scarab")
-  local aq20BoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq20_boe], 200, -140, "AQ20BoEDropdown", "aq20_boe")
+    local function UpdateIcon()
+      local state = EasyLootDB.settings[cat.key]
+      local info = state_icons[state] or state_icons[OFF]
+      tex:SetTexture(info.tex)
+      if info.r then
+        tex:SetVertexColor(info.r, info.g, info.b)
+      else
+        tex:SetVertexColor(1, 1, 1)
+      end
+    end
 
-  -- Raid section: MC
-  local mcLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  mcLabel:SetPoint("TOPLEFT", 30, -200)
-  mcLabel:SetText("MC")
+    UpdateIcon()
 
-  -- Horizontal layout for MC
-  local mcMatsDropdown = CreateDropdown(EasyLootConfigFrame, "Mats", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.mc_mat], 20, -220, "MCMatsDropdown", "mc_mat")
-  local mcBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.mc_boe], 110, -220, "MCBoEDropdown", "mc_boe")
+    local function ShowTooltip()
+      GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+      local state = EasyLootDB.settings[cat.key]
+      local info = state_icons[state] or state_icons[OFF]
+      GameTooltip:SetText(cat.label, 1, 0.82, 0)
+      GameTooltip:AddLine("Current: " .. info.label, 1, 1, 1)
+      GameTooltip:AddLine("Click to cycle", 0.5, 0.5, 0.5)
+      GameTooltip:Show()
+    end
 
-  -- Raid section: AQ40
-  local aq40Label = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  aq40Label:SetPoint("TOPLEFT", 30, -280)
-  aq40Label:SetText("AQ40")
+    btn:SetScript("OnClick", function()
+      local current = EasyLootDB.settings[cat.key]
+      EasyLootDB.settings[cat.key] = state_cycle[current] or NEED
+      UpdateIcon()
+      ShowTooltip()
+    end)
 
-  -- Horizontal layout for AQ40
-  local aq40IdolsDropdown = CreateDropdown(EasyLootConfigFrame, "Idols", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq40_idol], 20, -300, "AQ40IdolsDropdown", "aq40_idol")
-  local aq40ScarabsDropdown = CreateDropdown(EasyLootConfigFrame, "Scarabs", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq40_scarab], 110, -300, "AQ40ScarabsDropdown", "aq40_scarab")
-  local aq40BoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.aq40_boe], 200, -300, "AQ40BoEDropdown", "aq40_boe")
+    btn:SetScript("OnEnter", function()
+      ShowTooltip()
+    end)
 
-  -- Raid section: Naxx
-  local naxxLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  naxxLabel:SetPoint("TOPLEFT", 30, -360)
-  naxxLabel:SetText("Naxx")
+    btn:SetScript("OnLeave", function()
+      GameTooltip:Hide()
+    end)
 
-  -- Horizontal layout for Naxx
-  local naxxScrapDropdown = CreateDropdown(EasyLootConfigFrame, "Scraps", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.naxx_scrap], 20, -380, "NaxxScrapDropdown", "naxx_scrap")
-  local naxxBoEDropdown = CreateDropdown(EasyLootConfigFrame, "BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.naxx_boe], 110, -380, "NaxxBoEDropdown", "naxx_boe")
+    return btn
+  end
+
+  -- Raid sections (generated from raid_config)
+  local raid_y = -45
+  for _,raid in ipairs(raid_config) do
+    local zone_name = raid.zone
+
+    local labelFrame = CreateFrame("Frame", nil, EasyLootConfigFrame)
+    labelFrame:SetWidth(40)
+    labelFrame:SetHeight(20)
+    labelFrame:SetPoint("TOPLEFT", 20, raid_y - 2)
+    labelFrame:EnableMouse(true)
+
+    local raidLabel = labelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    raidLabel:SetPoint("LEFT", 0, 0)
+    raidLabel:SetText(raid.short)
+
+    labelFrame:SetScript("OnEnter", function()
+      GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+      GameTooltip:SetText(zone_name, 1, 0.82, 0)
+      GameTooltip:Show()
+    end)
+    labelFrame:SetScript("OnLeave", function()
+      GameTooltip:Hide()
+    end)
+
+    for ci,cat in ipairs(raid.categories) do
+      if cat.key then
+        local x = 65 + (ci - 1) * 28
+        CreateStateIcon(EasyLootConfigFrame, cat, x, raid_y)
+      end
+    end
+
+    raid_y = raid_y - 28
+  end
 
 
   ----------------------------------------------------------------------
