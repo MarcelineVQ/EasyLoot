@@ -400,17 +400,23 @@ local function prettify_roll_type(roll_type)
   return "Off"
 end
 
-local default_settings = {
-  pass_greys = false,
-  only_holy = false,
-  general_boe_rule = GREED,
-  auto_repair = true,
-  auto_invite = true,
-  auto_gossip = true,
-  auto_dismount = true,
-  auto_stand = true,
-  auto_sell_greys = true,
+local toggle_options = {
+  { label = "Auto-Invite",     setting = "auto_invite",     default = true,  tooltip = "Always accept invites from friends or guild members." },
+  { label = "Auto-Repair",     setting = "auto_repair",     default = true,  tooltip = "Repair at any valid vendor (hold Ctrl to disable)." },
+  { label = "Auto-Sell Greys", setting = "auto_sell_greys", default = true,  tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
+  { label = "Auto-Dismount",   setting = "auto_dismount",   default = true,  tooltip = "Automatically dismount when trying to use actions on a mount." },
+  { label = "Auto-Stand",      setting = "auto_stand",      default = true,  tooltip = "Automatically stand when trying to use actions while sitting." },
+  { label = "Auto-Gossip",     setting = "auto_gossip",     default = true,  tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
+  { label = "Pass on Greys",   setting = "pass_greys",      default = false, tooltip = "Do not loot grey items." },
+  { label = "Holy Water Only", setting = "only_holy",       default = false, tooltip = "Only loot holy water from Stratholme Chests." },
 }
+
+local default_settings = {
+  general_boe_rule = GREED,
+}
+for _,opt in ipairs(toggle_options) do
+  default_settings[opt.setting] = opt.default
+end
 for _,raid in ipairs(raid_config) do
   for _,cat in ipairs(raid.categories) do
     if cat.key then default_settings[cat.key] = cat.default end
@@ -692,16 +698,12 @@ function EasyLoot:Load()
     end
   end
   EasyLootDB.settings.general_boe_rule = EasyLootDB.settings.general_boe_rule or default_settings.general_boe_rule
-  -- bool checked differently
-  EasyLootDB.settings.pass_greys = (EasyLootDB.settings.pass_greys == nil) and default_settings.pass_greys or EasyLootDB.settings.pass_greys
-  EasyLootDB.settings.auto_repair = (EasyLootDB.settings.auto_repair == nil) and default_settings.auto_repair or EasyLootDB.settings.auto_repair
-  EasyLootDB.settings.auto_invite = (EasyLootDB.settings.auto_invite == nil) and default_settings.auto_invite or EasyLootDB.settings.auto_invite
-  EasyLootDB.settings.auto_gossip = (EasyLootDB.settings.auto_gossip == nil) and default_settings.auto_gossip or EasyLootDB.settings.auto_gossip
-  EasyLootDB.settings.only_holy = (EasyLootDB.settings.only_holy == nil) and default_settings.only_holy or EasyLootDB.settings.only_holy
-  EasyLootDB.settings.auto_dismount = (EasyLootDB.settings.auto_dismount == nil) and default_settings.auto_dismount or EasyLootDB.settings.auto_dismount
-  EasyLootDB.settings.auto_stand = (EasyLootDB.settings.auto_stand == nil) and default_settings.auto_stand or EasyLootDB.settings.auto_stand
-  EasyLootDB.settings.auto_sell_greys = (EasyLootDB.settings.auto_sell_greys == nil) and default_settings.auto_sell_greys or EasyLootDB.settings.auto_sell_greys
-  -- todo, add auto shapeshift removal
+  -- ensure all boolean toggle settings exist
+  for _,opt in ipairs(toggle_options) do
+    if EasyLootDB.settings[opt.setting] == nil then
+      EasyLootDB.settings[opt.setting] = opt.default
+    end
+  end
 end
 
 function EasyLoot:ADDON_LOADED(addon)
@@ -783,31 +785,39 @@ function EasyLoot:MERCHANT_SHOW()
 
   -- auto sell greys
   if EasyLootDB.settings.auto_sell_greys then
-    local total = 0
+    local gold_before = GetMoney()
+    local sold = 0
     for bag = 0, 4 do
       for slot = 1, GetContainerNumSlots(bag) do
         local link = GetContainerItemLink(bag, slot)
         if link and string.find(link, "ff9d9d9d") then
-          local _, count = GetContainerItemInfo(bag, slot)
-          local _, _, itemId = string.find(link, "item:(%d+)")
-          if itemId then
-            local _, _, _, _, _, _, _, _, _, _, vendorPrice = GetItemInfo(itemId)
-            if vendorPrice and vendorPrice > 0 then
-              total = total + vendorPrice * (count or 1)
-            end
-          end
           UseContainerItem(bag, slot)
+          sold = sold + 1
         end
       end
     end
-    if total > 0 then
-      local gcost = math.floor(total / 100 / 100)
-      local scost = math.floor(math.mod(total / 100, 100))
-      local ccost = math.floor(math.mod(total, 100))
-      local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
-      local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
-      local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
-      el_print(format("Sold grey items for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+    if sold > 0 then
+      if not EasyLoot.vendorGoldFrame then
+        EasyLoot.vendorGoldFrame = CreateFrame("Frame")
+      end
+      local f = EasyLoot.vendorGoldFrame
+      f.elapsed = 0
+      f.gold_before = gold_before
+      f:SetScript("OnUpdate", function()
+        this.elapsed = this.elapsed + arg1
+        if this.elapsed < 0.5 then return end
+        local earned = GetMoney() - this.gold_before
+        if earned > 0 then
+          local gcost = math.floor(earned / 100 / 100)
+          local scost = math.floor(math.mod(earned / 100, 100))
+          local ccost = math.floor(math.mod(earned, 100))
+          local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
+          local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
+          local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
+          el_print(format("Sold grey items for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+        end
+        this:SetScript("OnUpdate", nil)
+      end)
     end
   end
 end
@@ -875,8 +885,8 @@ function EasyLoot:CreateConfig()
 
   -- Create main frame for the configuration menu
   local EasyLootConfigFrame = CreateFrame("Frame", "EasyLootConfigFrame", UIParent)
-  EasyLootConfigFrame:SetWidth(500)  -- Increased width to accommodate the horizontal layout
-  EasyLootConfigFrame:SetHeight(440)  -- Adjusted height
+  EasyLootConfigFrame:SetWidth(360)
+  EasyLootConfigFrame:SetHeight(325)
   EasyLootConfigFrame:SetPoint("CENTER", UIParent, "CENTER")  -- Centered frame
   EasyLootConfigFrame:SetBackdrop({
       bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -1089,20 +1099,9 @@ function EasyLoot:CreateConfig()
 
   ----------------------------------------------------------------------
   -- Additional Options section
-  local toggle_options = {
-    { label = "Pass on Greys",  setting = "pass_greys",    tooltip = "Do not loot grey items." },
-    { label = "Holy Water Only", setting = "only_holy",    tooltip = "Only loot holy water from Stratholme Chests." },
-    { label = "Auto-Invite",    setting = "auto_invite",   tooltip = "Always accept invites from friends or guild members." },
-    { label = "Auto-Repair",    setting = "auto_repair",   tooltip = "Repair at any valid vendor (hold Ctrl to disable)." },
-    { label = "Auto-Gossip",    setting = "auto_gossip",   tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
-    { label = "Auto-Dismount",  setting = "auto_dismount", tooltip = "Automatically dismount when trying to use actions on a mount." },
-    { label = "Auto-Stand",     setting = "auto_stand",    tooltip = "Automatically stand when trying to use actions while sitting." },
-    { label = "Auto-Sell Greys", setting = "auto_sell_greys", tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
-  }
-
   local optionsDropdown = CreateFrame("Button", "EasyLootOptionsDropdown", EasyLootConfigFrame, "UIDropDownMenuTemplate")
   local optionsLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  optionsLabel:SetPoint("TOP", 120, -85)
+  optionsLabel:SetPoint("TOP", 85, -50)
   optionsLabel:SetText("Options")
   optionsDropdown:SetPoint("TOP", optionsLabel, "BOTTOM", 0, 0)
 
@@ -1140,7 +1139,7 @@ function EasyLoot:CreateConfig()
   end
 
   UIDropDownMenu_Initialize(optionsDropdown, InitializeOptionsDropdown)
-  UIDropDownMenu_SetWidth(120, optionsDropdown)
+  UIDropDownMenu_SetWidth(110, optionsDropdown)
   UIDropDownMenu_SetText("Options", optionsDropdown)
 
   ------------------------------------
@@ -1382,9 +1381,8 @@ StaticPopupDialogs["REM_ITEM_NAME"] = {
 }
 
 -- Dropdowns for adding/removing item names with proper names
-local lists_x,lists_y = 350,-180
-local dropdown1 = CreateListsDropdown(EasyLootConfigFrame, "Need Whitelist", EasyLootDB.needlist, 120,365, lists_y-110, "Dropdown1Frame", "A list of items that will always be Needed, even BoP items.")
-local dropdown2 = CreateListsDropdown(EasyLootConfigFrame, "Greed Whitelist", EasyLootDB.greedlist, 120,365, lists_y-155, "Dropdown2Frame", "A list of items that will always be Greeded, even BoP items.")
-local dropdown3 = CreateListsDropdown(EasyLootConfigFrame, "Pass Whitelist", EasyLootDB.passlist, 120,365, lists_y-200, "Dropdown3Frame", "A list of items that will always be Passed, and not auto-looted.")
+local dropdown1 = CreateListsDropdown(EasyLootConfigFrame, "Need Whitelist", EasyLootDB.needlist, 110, 295, -100, "Dropdown1Frame", "A list of items that will always be Needed, even BoP items.")
+local dropdown2 = CreateListsDropdown(EasyLootConfigFrame, "Greed Whitelist", EasyLootDB.greedlist, 110, 295, -150, "Dropdown2Frame", "A list of items that will always be Greeded, even BoP items.")
+local dropdown3 = CreateListsDropdown(EasyLootConfigFrame, "Pass Whitelist", EasyLootDB.passlist, 110, 295, -200, "Dropdown3Frame", "A list of items that will always be Passed, and not auto-looted.")
 
 end
