@@ -409,6 +409,7 @@ local default_settings = {
   auto_gossip = true,
   auto_dismount = true,
   auto_stand = true,
+  auto_sell_greys = true,
 }
 for _,raid in ipairs(raid_config) do
   for _,cat in ipairs(raid.categories) do
@@ -699,6 +700,7 @@ function EasyLoot:Load()
   EasyLootDB.settings.only_holy = (EasyLootDB.settings.only_holy == nil) and default_settings.only_holy or EasyLootDB.settings.only_holy
   EasyLootDB.settings.auto_dismount = (EasyLootDB.settings.auto_dismount == nil) and default_settings.auto_dismount or EasyLootDB.settings.auto_dismount
   EasyLootDB.settings.auto_stand = (EasyLootDB.settings.auto_stand == nil) and default_settings.auto_stand or EasyLootDB.settings.auto_stand
+  EasyLootDB.settings.auto_sell_greys = (EasyLootDB.settings.auto_sell_greys == nil) and default_settings.auto_sell_greys or EasyLootDB.settings.auto_sell_greys
   -- todo, add auto shapeshift removal
 end
 
@@ -760,19 +762,53 @@ function EasyLoot:PARTY_INVITE_REQUEST(who)
 end
 
 function EasyLoot:MERCHANT_SHOW()
-  if not EasyLootDB.settings.auto_repair or not CanMerchantRepair() or IsControlKeyDown() then return end
-  local rcost = GetRepairAllCost()
-  if rcost and rcost ~= 0 then
-    if rcost > GetMoney() then
-      el_print("Not Enough Money to Repair.")
-      return
+  if IsControlKeyDown() then return end
+
+  -- auto repair
+  if EasyLootDB.settings.auto_repair and CanMerchantRepair() then
+    local rcost = GetRepairAllCost()
+    if rcost and rcost ~= 0 then
+      if rcost > GetMoney() then
+        el_print("Not Enough Money to Repair.")
+      else
+        RepairAllItems()
+        local gcost,scost,ccost = rcost/100/100,math.mod(rcost/100,100),math.mod(rcost,100)
+        local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
+        local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
+        local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
+        el_print(format("Equipment repaired for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+      end
     end
-    RepairAllItems()
-    local gcost,scost,ccost = rcost/100/100,math.mod(rcost/100,100),math.mod(rcost,100)
-    local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
-    local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
-    local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
-    el_print(format("Equipment repaired for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+  end
+
+  -- auto sell greys
+  if EasyLootDB.settings.auto_sell_greys then
+    local total = 0
+    for bag = 0, 4 do
+      for slot = 1, GetContainerNumSlots(bag) do
+        local link = GetContainerItemLink(bag, slot)
+        if link and string.find(link, "ff9d9d9d") then
+          local _, count = GetContainerItemInfo(bag, slot)
+          local _, _, itemId = string.find(link, "item:(%d+)")
+          if itemId then
+            local _, _, _, _, _, _, _, _, _, _, vendorPrice = GetItemInfo(itemId)
+            if vendorPrice and vendorPrice > 0 then
+              total = total + vendorPrice * (count or 1)
+            end
+          end
+          UseContainerItem(bag, slot)
+        end
+      end
+    end
+    if total > 0 then
+      local gcost = math.floor(total / 100 / 100)
+      local scost = math.floor(math.mod(total / 100, 100))
+      local ccost = math.floor(math.mod(total, 100))
+      local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
+      local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
+      local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
+      el_print(format("Sold grey items for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+    end
   end
 end
 
@@ -1026,44 +1062,86 @@ function EasyLoot:CreateConfig()
   end
 
 
+  -- "Other" row for non-raid BoE rule (world/dungeon)
+  raid_y = raid_y - 4
+  local otherLabel = CreateFrame("Frame", nil, EasyLootConfigFrame)
+  otherLabel:SetWidth(50)
+  otherLabel:SetHeight(20)
+  otherLabel:SetPoint("TOPLEFT", 20, raid_y - 2)
+  otherLabel:EnableMouse(true)
+
+  local otherText = otherLabel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  otherText:SetPoint("LEFT", 0, 0)
+  otherText:SetText("Other")
+
+  otherLabel:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+    GameTooltip:SetText("World and Dungeon", 1, 0.82, 0)
+    GameTooltip:Show()
+  end)
+  otherLabel:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+  end)
+
+  CreateStateIcon(EasyLootConfigFrame,
+    { label = "BoE", key = "general_boe_rule", is_boe = true },
+    65, raid_y)
+
   ----------------------------------------------------------------------
   -- Additional Options section
-  local optionsLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  optionsLabel:SetPoint("TOPLEFT", 330, -40)
-  optionsLabel:SetText("Additional Options")
+  local toggle_options = {
+    { label = "Pass on Greys",  setting = "pass_greys",    tooltip = "Do not loot grey items." },
+    { label = "Holy Water Only", setting = "only_holy",    tooltip = "Only loot holy water from Stratholme Chests." },
+    { label = "Auto-Invite",    setting = "auto_invite",   tooltip = "Always accept invites from friends or guild members." },
+    { label = "Auto-Repair",    setting = "auto_repair",   tooltip = "Repair at any valid vendor (hold Ctrl to disable)." },
+    { label = "Auto-Gossip",    setting = "auto_gossip",   tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
+    { label = "Auto-Dismount",  setting = "auto_dismount", tooltip = "Automatically dismount when trying to use actions on a mount." },
+    { label = "Auto-Stand",     setting = "auto_stand",    tooltip = "Automatically stand when trying to use actions while sitting." },
+    { label = "Auto-Sell Greys", setting = "auto_sell_greys", tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
+  }
 
-  -- Create checkboxes function compatible with WoW 1.12
-  local function CreateCheckbox(label, x, y, setting, tooltip)
-    local checkbox = CreateFrame("CheckButton", nil, EasyLootConfigFrame, "UICheckButtonTemplate")
-    checkbox:SetPoint("TOPLEFT", x, y)
-    checkbox.text = checkbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    checkbox.text:SetPoint("LEFT", checkbox, "RIGHT", 0, 0)
-    checkbox.text:SetText(label)
-    checkbox:SetChecked(EasyLootDB.settings[setting] and 1 or nil)
-    checkbox:SetScript("OnClick", function ()
-      EasyLootDB.settings[setting] = not EasyLootDB.settings[setting]
-    end)
-    checkbox:SetScript("OnEnter", function()
-      GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-      GameTooltip:SetText(tooltip, 1, 1, 0)  -- Tooltip title
-      -- GameTooltip:AddLine("Re-apply the Applied layout as people join the raid", 1, 1, 1, true)  -- Tooltip description
-      GameTooltip:Show()
-    end)
-    checkbox:SetScript("OnLeave", function()
-      GameTooltip:Hide()
-    end)
-    return checkbox
+  local optionsDropdown = CreateFrame("Button", "EasyLootOptionsDropdown", EasyLootConfigFrame, "UIDropDownMenuTemplate")
+  local optionsLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  optionsLabel:SetPoint("TOP", 120, -85)
+  optionsLabel:SetText("Options")
+  optionsDropdown:SetPoint("TOP", optionsLabel, "BOTTOM", 0, 0)
+
+  local function InitializeOptionsDropdown()
+    for idx,opt in ipairs(toggle_options) do
+      local setting_key = opt.setting
+      local info = {}
+      info.text = opt.label
+      info.keepShownOnClick = 1
+      info.checked = EasyLootDB.settings[setting_key] and 1 or nil
+      info.func = function ()
+        EasyLootDB.settings[setting_key] = not EasyLootDB.settings[setting_key]
+      end
+      UIDropDownMenu_AddButton(info)
+
+      local btn = getglobal("DropDownList1Button"..idx)
+      if btn then
+        btn.el_label = opt.label
+        btn.el_tooltip = opt.tooltip
+        btn:SetScript("OnEnter", function()
+          getglobal(this:GetName().."Highlight"):Show()
+          UIDropDownMenu_StopCounting(this:GetParent())
+          GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_CURSOR")
+          GameTooltip:SetText(this.el_label, 1, 0.82, 0)
+          GameTooltip:AddLine(this.el_tooltip, 1, 1, 1, true)
+          GameTooltip:Show()
+        end)
+        btn:SetScript("OnLeave", function()
+          getglobal(this:GetName().."Highlight"):Hide()
+          UIDropDownMenu_StartCounting(this:GetParent())
+          GameTooltip:Hide()
+        end)
+      end
+    end
   end
 
-  -- Additional options checkboxes
-  local boeRuleDropdown = CreateDropdown(EasyLootConfigFrame, "General BoE", loot_quality_dropdown, loot_quality_dropdown[EasyLootDB.settings.general_boe_rule], 330, -60, "GeneralBoEDropdown", "general_boe_rule")
-  local passOnGreysCheckbox = CreateCheckbox("Pass on Greys", 330, -100, "pass_greys", "Do not loot grey items.")
-  local onlyHolyCheckbox = CreateCheckbox("Holy Water Only", 330, -125, "only_holy", "Only loot holy water from Stratholme Chests.")
-  local autoInviteCheckbox = CreateCheckbox("Auto-Invite", 330, -150, "auto_invite", "Always accept invites from friends or guild members.")
-  local autoRepairCheckbox = CreateCheckbox("Auto-Repair", 330, -175, "auto_repair", "Repair at any valid vendor (hold Ctrl to disable).")
-  local autoGossipCheckbox = CreateCheckbox("Auto-Gossip", 330, -200, "auto_gossip", "Automatically choose the most common gossip options (hold Ctrl to disable).")
-  local autoDismountCheckbox = CreateCheckbox("Auto-Dismount", 330, -225, "auto_dismount", "Automatically dismount when trying to use actions on a mount.")
-  local autoStandCheckbox = CreateCheckbox("Auto-Stand", 330, -250, "auto_stand", "Automatically stant when trying to use actions while sitting.")
+  UIDropDownMenu_Initialize(optionsDropdown, InitializeOptionsDropdown)
+  UIDropDownMenu_SetWidth(120, optionsDropdown)
+  UIDropDownMenu_SetText("Options", optionsDropdown)
 
   ------------------------------------
 
