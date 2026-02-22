@@ -634,6 +634,53 @@ function EasyLoot:ZONE_CHANGED_NEW_AREA()
   end
 end
 
+function EasyLoot:VARIABLES_LOADED()
+  EasyLoot:Load()
+
+  EasyLoot:RegisterEvent("START_LOOT_ROLL")
+  EasyLoot:RegisterEvent("LOOT_OPENED")
+  EasyLoot:RegisterEvent("LOOT_CLOSED")
+  EasyLoot:RegisterEvent("LOOT_BIND_CONFIRM")
+  EasyLoot:RegisterEvent("LOOT_SLOT_CLEARED")
+  EasyLoot:RegisterEvent("CONFIRM_LOOT_ROLL")
+  EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
+  EasyLoot:RegisterEvent("MERCHANT_SHOW")
+  EasyLoot:RegisterEvent("GOSSIP_SHOW")
+  EasyLoot:RegisterEvent("ITEM_TEXT_BEGIN")
+  EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
+  EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
+  EasyLoot:RegisterEvent("UI_ERROR_MESSAGE")
+  EasyLoot:RegisterEvent("CONFIRM_SUMMON")
+  EasyLoot:RegisterEvent("RESURRECT_REQUEST")
+  EasyLoot:RegisterEvent("PLAYER_ENTERING_WORLD")
+  EasyLoot:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+
+  -- hook away superapi's autoloot functionality and set autloot to off since this handles it
+  if IfShiftAutoloot then
+    IfShiftAutoloot = function () return end
+  end
+  -- other method
+  if SuperAPI then
+    SuperAPI.IfShiftAutoloot = function () SetAutoloot(0) end
+    SuperAPI.IfShiftNoAutoloot = function () SetAutoloot(0) end
+    -- SuperAPI.frame:SetScript("OnUpdate", nil)
+  elseif SetAutoloot then -- superwow but no superapi
+    SetAutoloot(0)
+  end
+
+  EasyLoot:CreateConfig()
+
+  -- Restore saved frame position (must be after CreateConfig)
+  if EasyLootDB.position then
+    EasyLootConfigFrame:ClearAllPoints()
+    EasyLootConfigFrame:SetPoint(
+      EasyLootDB.position.point, UIParent,
+      EasyLootDB.position.relPoint,
+      EasyLootDB.position.x, EasyLootDB.position.y
+    )
+  end
+end
+
 function EasyLoot:CONFIRM_SUMMON()
   if EasyLootDB.settings.auto_summon then
     ConfirmSummon()
@@ -687,8 +734,8 @@ end
 
 ------------------------------
 
--- Register the ADDON_LOADED event
-EasyLoot:RegisterEvent("ADDON_LOADED")
+-- Register events
+EasyLoot:RegisterEvent("VARIABLES_LOADED")
 EasyLoot:SetScript("OnEvent", function ()
   EasyLoot[event](this,arg1,arg2,arg3,arg4,arg6,arg7,arg8,arg9,arg9,arg10)
 end)
@@ -718,52 +765,6 @@ function EasyLoot:Load()
   end
 end
 
-function EasyLoot:ADDON_LOADED(addon)
-  if addon ~= "EasyLoot" then return end
-  EasyLoot:Load()
-  EasyLoot:RegisterEvent("START_LOOT_ROLL")
-  EasyLoot:RegisterEvent("LOOT_OPENED")
-  EasyLoot:RegisterEvent("LOOT_CLOSED")
-  EasyLoot:RegisterEvent("LOOT_BIND_CONFIRM")
-  EasyLoot:RegisterEvent("LOOT_SLOT_CLEARED")
-  EasyLoot:RegisterEvent("CONFIRM_LOOT_ROLL")
-  EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
-  EasyLoot:RegisterEvent("MERCHANT_SHOW")
-  EasyLoot:RegisterEvent("GOSSIP_SHOW")
-  EasyLoot:RegisterEvent("ITEM_TEXT_BEGIN")
-  EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
-  EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
-  EasyLoot:RegisterEvent("UI_ERROR_MESSAGE")
-  EasyLoot:RegisterEvent("CONFIRM_SUMMON")
-  EasyLoot:RegisterEvent("RESURRECT_REQUEST")
-  EasyLoot:RegisterEvent("PLAYER_ENTERING_WORLD")
-  EasyLoot:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-
-  -- hook away superapi's autoloot functionality and set autloot to off since this handles it
-  if IfShiftAutoloot then
-    IfShiftAutoloot = function () return end
-  end
-  -- other method
-  if SuperAPI then
-    SuperAPI.IfShiftAutoloot = function () SetAutoloot(0) end
-    SuperAPI.IfShiftNoAutoloot = function () SetAutoloot(0) end
-    -- SuperAPI.frame:SetScript("OnUpdate", nil)
-  elseif SetAutoloot then -- superwow but no superapi
-    SetAutoloot(0)
-  end
-
-  EasyLoot:CreateConfig()
-
-  -- Restore saved frame position (must be after CreateConfig)
-  if EasyLootDB.position then
-    EasyLootConfigFrame:ClearAllPoints()
-    EasyLootConfigFrame:SetPoint(
-      EasyLootDB.position.point, UIParent,
-      EasyLootDB.position.relPoint,
-      EasyLootDB.position.x, EasyLootDB.position.y
-    )
-  end
-end
 
 -- lazypigs
 function EasyLoot:AcceptGroupInvite()

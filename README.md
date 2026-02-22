@@ -4,18 +4,18 @@ Automatic loot rules for instances and groups. Have loot handle itself.
 `/easyloot` for in game options. `/easyloot reset` to reset frame position.
 Best used with [SuperWow](https://github.com/balakethelock/SuperWoW/) enabled.
 
-### Raid Loot
+### Raid Loot Options
 * Per-raid loot rules with icon toggles for ZG, AQ20, MC, BWL, ES, AQ40, Naxx, and Kara.
 * * Configure coins, bijous, idols, scarabs, mats, trash BoPs, and BoE items per raid.
 * * General BoE rule for world and dungeon drops.
 
-### Vendor
+### Vendor Options
 * Auto-buy reagent list. Specify items and quantities to automatically restock at vendors.
 * * Individual items can be toggled on/off.
 * Auto-sell grey items.
 * Auto-repair.
 
-### Quality of Life
+### Quality of Life Options
 * Auto-accept invites from friends and guildmates.
 * Auto-accept summons.
 * Auto-accept resurrections.
@@ -24,7 +24,7 @@ Best used with [SuperWow](https://github.com/balakethelock/SuperWoW/) enabled.
 * Automation of many common gossip actions.
 * Automatically turn in Bijou by clicking on Altar of Zanza.
 
-### Looting
+### Looting Options
 * Autoloot behavior selection.
 * Pass on greys option.
 * Holy Water Only option for Stratholme chests.
