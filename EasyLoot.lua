@@ -800,40 +800,62 @@ function EasyLoot:MERCHANT_SHOW()
     end
   end
 
-  -- auto sell greys
+  -- auto sell greys (one per frame, SortBags-style throttling)
   if EasyLootDB.settings.auto_sell_greys then
-    local gold_before = GetMoney()
-    local sold = 0
+    local queue = {}
     for bag = 0, 4 do
       for slot = 1, GetContainerNumSlots(bag) do
         local link = GetContainerItemLink(bag, slot)
         if link and string.find(link, "ff9d9d9d") then
-          UseContainerItem(bag, slot)
-          sold = sold + 1
+          table.insert(queue, { bag = bag, slot = slot })
         end
       end
     end
-    if sold > 0 then
-      if not EasyLoot.vendorGoldFrame then
-        EasyLoot.vendorGoldFrame = CreateFrame("Frame")
+    if queue[1] then
+      if not EasyLoot.vendorSellFrame then
+        EasyLoot.vendorSellFrame = CreateFrame("Frame")
       end
-      local f = EasyLoot.vendorGoldFrame
-      f.elapsed = 0
-      f.gold_before = gold_before
+      local f = EasyLoot.vendorSellFrame
+      f.queue = queue
+      f.index = 1
+      f.gold_before = GetMoney()
+      f.timeout = GetTime() + 7
+      f.opTimeout = 0
+      f.waiting = false
       f:SetScript("OnUpdate", function()
-        this.elapsed = this.elapsed + arg1
-        if this.elapsed < 0.5 then return end
-        local earned = GetMoney() - this.gold_before
-        if earned > 0 then
-          local gcost = math.floor(earned / 100 / 100)
-          local scost = math.floor(math.mod(earned / 100, 100))
-          local ccost = math.floor(math.mod(earned, 100))
-          local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
-          local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
-          local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
-          el_print(format("Sold grey items for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+        if GetTime() > this.timeout then
+          this:SetScript("OnUpdate", nil)
+          return
         end
-        this:SetScript("OnUpdate", nil)
+        if this.waiting then
+          local item = this.queue[this.index - 1]
+          if GetContainerItemLink(item.bag, item.slot) then
+            if GetTime() > this.opTimeout then
+              this.waiting = false
+            end
+            return
+          end
+          this.waiting = false
+        end
+        local item = this.queue[this.index]
+        if not item then
+          local earned = GetMoney() - this.gold_before
+          if earned > 0 then
+            local gcost = math.floor(earned / 100 / 100)
+            local scost = math.floor(math.mod(earned / 100, 100))
+            local ccost = math.floor(math.mod(earned, 100))
+            local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
+            local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
+            local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
+            el_print(format("Sold grey items for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+          end
+          this:SetScript("OnUpdate", nil)
+          return
+        end
+        UseContainerItem(item.bag, item.slot)
+        this.index = this.index + 1
+        this.waiting = true
+        this.opTimeout = GetTime() + 2
       end)
     end
   end
@@ -1170,19 +1192,22 @@ function EasyLoot:CreateConfig()
 
       local btn = getglobal("DropDownList1Button"..idx)
       if btn then
+        if not btn.el_orig_enter then
+          btn.el_orig_enter = btn:GetScript("OnEnter")
+          btn.el_orig_leave = btn:GetScript("OnLeave")
+        end
         btn.el_label = opt.label
         btn.el_tooltip = opt.tooltip
         btn:SetScript("OnEnter", function()
-          getglobal(this:GetName().."Highlight"):Show()
-          UIDropDownMenu_StopCounting(this:GetParent())
+          if this.el_orig_enter then this.el_orig_enter() end
+          if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootOptionsDropdown" then return end
           GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_BOTTOMRIGHT")
           GameTooltip:SetText(this.el_label, 1, 0.82, 0)
           GameTooltip:AddLine(this.el_tooltip, 1, 1, 1, true)
           GameTooltip:Show()
         end)
         btn:SetScript("OnLeave", function()
-          getglobal(this:GetName().."Highlight"):Hide()
-          UIDropDownMenu_StartCounting(this:GetParent())
+          if this.el_orig_leave then this.el_orig_leave() end
           GameTooltip:Hide()
         end)
       end
@@ -1266,9 +1291,14 @@ function EasyLoot:CreateConfig()
       -- tooltip on "Add New item" button
       local addBtn = getglobal("DropDownList1Button"..btnIdx)
       if addBtn then
+        if not addBtn.el_orig_enter then
+          addBtn.el_orig_enter = addBtn:GetScript("OnEnter")
+          addBtn.el_orig_leave = addBtn:GetScript("OnLeave")
+        end
+        addBtn.el_dropdown_owner = name
         addBtn:SetScript("OnEnter", function()
-          getglobal(this:GetName().."Highlight"):Show()
-          UIDropDownMenu_StopCounting(this:GetParent())
+          if this.el_orig_enter then this.el_orig_enter() end
+          if UIDROPDOWNMENU_OPEN_MENU ~= this.el_dropdown_owner then return end
           GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
           GameTooltip:SetText(label, 1, 0.82, 0)
           GameTooltip:AddLine(tooltip, 1, 1, 1, true)
@@ -1276,8 +1306,7 @@ function EasyLoot:CreateConfig()
           GameTooltip:Show()
         end)
         addBtn:SetScript("OnLeave", function()
-          getglobal(this:GetName().."Highlight"):Hide()
-          UIDropDownMenu_StartCounting(this:GetParent())
+          if this.el_orig_leave then this.el_orig_leave() end
           GameTooltip:Hide()
         end)
       end
@@ -1293,24 +1322,16 @@ function EasyLoot:CreateConfig()
           local btn = getglobal("DropDownList1Button"..btnIdx)
           if btn then
             btn.el_remove_item = item
+            btn.el_dropdown_owner = name
             btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             btn:SetScript("OnClick", function()
-              if arg1 == "RightButton" then
+              if UIDROPDOWNMENU_OPEN_MENU == this.el_dropdown_owner and arg1 == "RightButton" then
                 CloseDropDownMenus()
                 local pop = StaticPopup_Show("REM_ITEM_NAME", this.el_remove_item, label)
                 pop.data = { items, this.el_remove_item, dropdown }
               else
                 UIDropDownMenuButton_OnClick()
               end
-            end)
-            btn:SetScript("OnEnter", function()
-              getglobal(this:GetName().."Highlight"):Show()
-              UIDropDownMenu_StopCounting(this:GetParent())
-            end)
-            btn:SetScript("OnLeave", function()
-              getglobal(this:GetName().."Highlight"):Hide()
-              UIDropDownMenu_StartCounting(this:GetParent())
-              GameTooltip:Hide()
             end)
           end
       end
@@ -1577,9 +1598,13 @@ StaticPopupDialogs["REM_BUY_ITEM"] = {
       -- tooltip on "Add New item" button
       local addBtn = getglobal("DropDownList1Button"..btnIdx)
       if addBtn then
+        if not addBtn.el_orig_enter then
+          addBtn.el_orig_enter = addBtn:GetScript("OnEnter")
+          addBtn.el_orig_leave = addBtn:GetScript("OnLeave")
+        end
         addBtn:SetScript("OnEnter", function()
-          getglobal(this:GetName().."Highlight"):Show()
-          UIDropDownMenu_StopCounting(this:GetParent())
+          if this.el_orig_enter then this.el_orig_enter() end
+          if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootBuyListDropdown" then return end
           GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
           GameTooltip:SetText("Buy List", 1, 0.82, 0)
           GameTooltip:AddLine("Format: 20 Sacred Candle (or 20x Sacred Candle)", 1, 1, 1, true)
@@ -1587,8 +1612,7 @@ StaticPopupDialogs["REM_BUY_ITEM"] = {
           GameTooltip:Show()
         end)
         addBtn:SetScript("OnLeave", function()
-          getglobal(this:GetName().."Highlight"):Hide()
-          UIDropDownMenu_StartCounting(this:GetParent())
+          if this.el_orig_leave then this.el_orig_leave() end
           GameTooltip:Hide()
         end)
       end
@@ -1614,22 +1638,13 @@ StaticPopupDialogs["REM_BUY_ITEM"] = {
           btn.el_remove_display = displayText
           btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
           btn:SetScript("OnClick", function()
-            if arg1 == "RightButton" then
+            if UIDROPDOWNMENU_OPEN_MENU == "EasyLootBuyListDropdown" and arg1 == "RightButton" then
               CloseDropDownMenus()
               local pop = StaticPopup_Show("REM_BUY_ITEM", this.el_remove_display)
               pop.data = { this.el_remove_display, dropdown }
             else
               UIDropDownMenuButton_OnClick()
             end
-          end)
-          btn:SetScript("OnEnter", function()
-            getglobal(this:GetName().."Highlight"):Show()
-            UIDropDownMenu_StopCounting(this:GetParent())
-          end)
-          btn:SetScript("OnLeave", function()
-            getglobal(this:GetName().."Highlight"):Hide()
-            UIDropDownMenu_StartCounting(this:GetParent())
-            GameTooltip:Hide()
           end)
         end
       end
