@@ -42,8 +42,10 @@ local function PlayerCanMark()
   return PlayerCanRaidMark() or not InGroup()
 end
 
-local function Capitalize(str)
-  return (string.upper(string.sub(str,1,1)) .. string.lower(string.sub(str,2)))
+local function TitleCase(str)
+  return (string.gsub(str, "(%a)([%a']*)", function(first, rest)
+    return string.upper(first) .. rest
+  end))
 end
 
 -- lazypigs
@@ -88,6 +90,7 @@ EasyLoot.GREED = 2
 local OFF,PASS,NEED,GREED = EasyLoot.OFF,EasyLoot.PASS,EasyLoot.NEED,EasyLoot.GREED
 
 local binds = {}
+local ITEM_COLOR = "|cff88bbdd"
 
 ------------------------------
 -- Table Functions
@@ -339,49 +342,49 @@ local raid_config = {
     { label = "Coins", items = zg_coin, key = "zg_coin", default = NEED },
     { label = "Bijou", items = zg_bijou, key = "zg_bijou", default = NEED },
     {},
-    { label = "BoE", key = "zg_boe", default = NEED, is_boe = true },
+    { label = "BoEs", key = "zg_boe", default = NEED, is_boe = true },
   }},
   { zone = "Ruins of Ahn'Qiraj", short = "AQ20", categories = {
     { label = "Idols", items = idol_aq20, key = "aq20_idol", default = NEED },
     { label = "Scarabs", items = scarab, key = "aq20_scarab", default = NEED },
     {},
-    { label = "BoE", key = "aq20_boe", default = NEED, is_boe = true },
+    { label = "BoEs", key = "aq20_boe", default = NEED, is_boe = true },
   }},
   { zone = "Molten Core", short = "MC", categories = {
     { label = "Ingot", items = {"Sulfuron Ingot"}, key = "mc_ingot", default = OFF },
     { label = "Mats", items = mc_mat, key = "mc_mat", default = OFF },
     { label = "Trash BoPs", items = mc_trash_bop, key = "mc_trash", default = OFF },
-    { label = "BoE", key = "mc_boe", default = OFF, is_boe = true },
+    { label = "BoEs", key = "mc_boe", default = OFF, is_boe = true },
   }},
   { zone = "Blackwing Lair", short = "BWL", categories = {
     { label = "Elementium", items = {}, key = "bwl_mat", default = OFF },
     {},
     { label = "Trash BoPs", items = bwl_trash_bop, key = "bwl_trash", default = OFF },
-    { label = "BoE", key = "bwl_boe", default = OFF, is_boe = true },
+    { label = "BoEs", key = "bwl_boe", default = OFF, is_boe = true },
   }},
   { zone = "Emerald Sanctum", short = "ES", categories = {
     { label = "Scales+Fading", items = {"Dreamscale", "Fading Dream Fragment"}, key = "es_mat", default = OFF },
     {},
     { label = "Trash BoPs", items = es_trash_bop, key = "es_trash", default = OFF },
-    { label = "BoE", key = "es_boe", default = OFF, is_boe = true },
+    { label = "BoEs", key = "es_boe", default = OFF, is_boe = true },
   }},
   { zone = "Ahn'Qiraj", short = "AQ40", categories = {
     { label = "Idols", items = idol_aq40, key = "aq40_idol", default = OFF },
     { label = "Scarabs", items = scarab, key = "aq40_scarab", default = OFF },
     { label = "Trash BoPs", items = aq40_trash_bop, key = "aq40_trash", default = OFF },
-    { label = "BoE", key = "aq40_boe", default = OFF, is_boe = true },
+    { label = "BoEs", key = "aq40_boe", default = OFF, is_boe = true },
   }},
   { zone = "Naxxramas", short = "Naxx", categories = {
     { label = "Scraps", items = scrap, key = "naxx_scrap", default = OFF },
     {},
     { label = "Trash BoPs", items = naxx_trash_bop, key = "naxx_trash", default = OFF },
-    { label = "BoE", key = "naxx_boe", default = OFF, is_boe = true },
+    { label = "BoEs", key = "naxx_boe", default = OFF, is_boe = true },
   }},
   { zone = "Tower of Karazhan", aliases = {"The Rock of Desolation"}, short = "Kara40", categories = {
     { label = "Pristine Ley Crystal", items = {"Pristine Ley Crystal"}, key = "kara_mat", default = OFF },
     { label = "Overcharged Ley Energy", items = {"Overcharged Ley Energy"}, key = "kara_energy", default = OFF },
     { label = "Trash BoPs", items = kara_trash_bop, key = "kara_trash", default = OFF },
-    { label = "BoE", key = "kara_boe", default = OFF, is_boe = true },
+    { label = "BoEs", key = "kara_boe", default = OFF, is_boe = true },
   }},
 }
 
@@ -402,13 +405,21 @@ end
 
 local toggle_options = {
   { label = "Auto-Invite",     setting = "auto_invite",     default = true,  tooltip = "Always accept invites from friends or guild members." },
+  { label = "Accept Summon",    setting = "auto_summon",     default = false,  tooltip = "Automatically accept summons." },
+  { label = "Accept Resurrect", setting = "auto_resurrect",  default = false,  tooltip = "Automatically accept resurrections." },
+  { label = "Buy Items", setting = "auto_buy",         default = true,  tooltip = "Automatically buy enabled items from the vendor purchase list (hold Ctrl to disable)." },
+  { label = "Sell Greys", setting = "auto_sell_greys", default = true,  tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
   { label = "Auto-Repair",     setting = "auto_repair",     default = true,  tooltip = "Repair at any valid vendor (hold Ctrl to disable)." },
-  { label = "Auto-Sell Greys", setting = "auto_sell_greys", default = true,  tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
-  { label = "Auto-Dismount",   setting = "auto_dismount",   default = true,  tooltip = "Automatically dismount when trying to use actions on a mount." },
+  { label = "Auto-Dismount",   setting = "auto_dismount",   default = true,  tooltip = "Automatically dismount when trying to use most actions on a mount." },
   { label = "Auto-Stand",      setting = "auto_stand",      default = true,  tooltip = "Automatically stand when trying to use actions while sitting." },
   { label = "Auto-Gossip",     setting = "auto_gossip",     default = true,  tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
+  { label = "Combat Plates",  setting = "combat_plates",   default = false, tooltip = "Only show enemy nameplates in combat, hide when leaving combat." },
+  { label = "Shift to Loot",   setting = "shift_to_loot",   default = false, tooltip = "Invert Shift behavior: only autoloot when Shift is held." },
   { label = "Pass on Greys",   setting = "pass_greys",      default = false, tooltip = "Do not loot grey items." },
   { label = "Holy Water Only", setting = "only_holy",       default = false, tooltip = "Only loot holy water from Stratholme Chests." },
+  { label = "Need List", setting = "need_whitelist",    default = true,  tooltip = "Enable the Need whitelist for auto-rolling." },
+  { label = "Greed List",setting = "greed_whitelist",   default = true,  tooltip = "Enable the Greed whitelist for auto-rolling." },
+  { label = "Pass List", setting = "pass_whitelist",    default = true,  tooltip = "Enable the Pass whitelist for auto-rolling." },
 }
 
 local default_settings = {
@@ -423,28 +434,15 @@ for _,raid in ipairs(raid_config) do
   end
 end
 
-local default_need_list = {
-  "Corrupted Sand",
-  "Arcane Essence",
-  "Righteous Orb",
-  "Fashion Coin",
-}
-
-local default_greed_list = {
-}
-
-local default_pass_list = {
-}
-
 -- Determine what kind of roll we want for the item and do the pass, or roll of need or greed
 -- returns the roll type, if it was in an explicit list, and if it's a BoE item
 function EasyLoot:HandleItem(name,explicit_only)
   -- check specific lists first
-  if fuzzy_elem(EasyLootDB.needlist,name) then
+  if EasyLootDB.settings.need_whitelist and fuzzy_elem(EasyLootDB.needlist,name) then
     return NEED,true,false
-  elseif fuzzy_elem(EasyLootDB.greedlist,name) then
+  elseif EasyLootDB.settings.greed_whitelist and fuzzy_elem(EasyLootDB.greedlist,name) then
     return GREED,true,false
-  elseif fuzzy_elem(EasyLootDB.passlist,name) then
+  elseif EasyLootDB.settings.pass_whitelist and fuzzy_elem(EasyLootDB.passlist,name) then
     return PASS,true,false
   end
 
@@ -525,7 +523,8 @@ if pfUI and pfUI.loot then
 end
 
 function EasyLoot:LOOT_OPENED()
-  if IsShiftKeyDown() then -- skip autolooting
+  local shift = IsShiftKeyDown()
+  if (not EasyLootDB.settings.shift_to_loot and shift) or (EasyLootDB.settings.shift_to_loot and not shift) then
     orig_pfUI_UpdateLootFrame()
     return
   end
@@ -615,26 +614,38 @@ end
 -- Other Functions
 ------------------------------
 
--- add a purchase list as well, let people link an item to add it if needed
--- e.g.: 20 [Sacred Candle]
-
--- toggle enemy nameplates on in combat, turn off after
-function EasyLoot:TogglePlates()
-  self.plate_state = self.plate_state or false
-  if self.plate_state then
-    ShowNameplates()
-  else
-    HideNameplates()
-  end
-  self.plate_state = not self.plate_state
-end
-
 function EasyLoot:PLAYER_REGEN_ENABLED()
-  -- if EasyLootDB.settings.plates then TogglePlates() end
+  if EasyLootDB.settings.combat_plates then HideNameplates() end
 end
 
 function EasyLoot:PLAYER_REGEN_DISABLED()
-  -- if EasyLootDB.settings.plates then TogglePlates() end
+  if EasyLootDB.settings.combat_plates then ShowNameplates() end
+end
+
+function EasyLoot:PLAYER_ENTERING_WORLD()
+  if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
+    HideNameplates()
+  end
+end
+
+function EasyLoot:ZONE_CHANGED_NEW_AREA()
+  if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
+    HideNameplates()
+  end
+end
+
+function EasyLoot:CONFIRM_SUMMON()
+  if EasyLootDB.settings.auto_summon then
+    ConfirmSummon()
+    StaticPopup_Hide("CONFIRM_SUMMON")
+  end
+end
+
+function EasyLoot:RESURRECT_REQUEST()
+  if EasyLootDB.settings.auto_resurrect then
+    AcceptResurrect()
+    StaticPopup_Hide("RESURRECT_NO_SICKNESS")
+  end
 end
 
 local elTooltip = CreateFrame("GameTooltip", "elTooltip", UIParent, "GameTooltipTemplate")
@@ -684,9 +695,10 @@ end)
 
 function EasyLoot:Load()
   EasyLootDB = EasyLootDB or {}
-  EasyLootDB.needlist = EasyLootDB.needlist or default_need_list
-  EasyLootDB.greedlist = EasyLootDB.greedlist or default_greed_list
-  EasyLootDB.passlist = EasyLootDB.passlist or default_pass_list
+  EasyLootDB.needlist = EasyLootDB.needlist or {}
+  EasyLootDB.greedlist = EasyLootDB.greedlist or {}
+  EasyLootDB.passlist = EasyLootDB.passlist or {}
+  EasyLootDB.buylist = EasyLootDB.buylist or {}
 
   EasyLootDB.settings = EasyLootDB.settings or default_settings
   -- ensure all raid settings exist (for newly added raids)
@@ -722,6 +734,10 @@ function EasyLoot:ADDON_LOADED(addon)
   EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
   EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
   EasyLoot:RegisterEvent("UI_ERROR_MESSAGE")
+  EasyLoot:RegisterEvent("CONFIRM_SUMMON")
+  EasyLoot:RegisterEvent("RESURRECT_REQUEST")
+  EasyLoot:RegisterEvent("PLAYER_ENTERING_WORLD")
+  EasyLoot:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 
   -- hook away superapi's autoloot functionality and set autloot to off since this handles it
   if IfShiftAutoloot then
@@ -818,6 +834,39 @@ function EasyLoot:MERCHANT_SHOW()
         end
         this:SetScript("OnUpdate", nil)
       end)
+    end
+  end
+
+  -- auto buy items from purchase list
+  if EasyLootDB.settings.auto_buy and EasyLootDB.buylist then
+    for _,entry in ipairs(EasyLootDB.buylist) do
+      if entry.enabled ~= false then
+        -- count how many of this item are already in bags
+        local inBags = 0
+        for bag = 0, 4 do
+          for slot = 1, GetContainerNumSlots(bag) do
+            local link = GetContainerItemLink(bag, slot)
+            if link then
+              local bagName = ItemLinkToName(link)
+              if bagName and string.lower(bagName) == string.lower(entry.name) then
+                local _,count = GetContainerItemInfo(bag, slot)
+                inBags = inBags + (count or 1)
+              end
+            end
+          end
+        end
+        local needed = entry.count - inBags
+        if needed > 0 then
+          for i = 1, GetMerchantNumItems() do
+            local mName = GetMerchantItemInfo(i)
+            if mName and string.lower(mName) == string.lower(entry.name) then
+              BuyMerchantItem(i, needed)
+              el_print(format("Bought %dx "..ITEM_COLOR.."%s|r", needed, entry.name))
+              break
+            end
+          end
+        end
+      end
     end
   end
 end
@@ -1038,7 +1087,7 @@ function EasyLoot:CreateConfig()
   end
 
   -- Raid sections (generated from raid_config)
-  local raid_y = -45
+  local raid_y = -52
   for _,raid in ipairs(raid_config) do
     local zone_name = raid.zone
 
@@ -1094,16 +1143,12 @@ function EasyLoot:CreateConfig()
   end)
 
   CreateStateIcon(EasyLootConfigFrame,
-    { label = "BoE", key = "general_boe_rule", is_boe = true },
+    { label = "BoEs", key = "general_boe_rule", is_boe = true },
     65, raid_y)
 
   ----------------------------------------------------------------------
   -- Additional Options section
   local optionsDropdown = CreateFrame("Button", "EasyLootOptionsDropdown", EasyLootConfigFrame, "UIDropDownMenuTemplate")
-  local optionsLabel = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  optionsLabel:SetPoint("TOP", 85, -50)
-  optionsLabel:SetText("Options")
-  optionsDropdown:SetPoint("TOP", optionsLabel, "BOTTOM", 0, 0)
 
   local function InitializeOptionsDropdown()
     for idx,opt in ipairs(toggle_options) do
@@ -1114,6 +1159,11 @@ function EasyLoot:CreateConfig()
       info.checked = EasyLootDB.settings[setting_key] and 1 or nil
       info.func = function ()
         EasyLootDB.settings[setting_key] = not EasyLootDB.settings[setting_key]
+        if setting_key == "combat_plates" then
+          if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
+            HideNameplates()
+          end
+        end
       end
       UIDropDownMenu_AddButton(info)
 
@@ -1124,7 +1174,7 @@ function EasyLoot:CreateConfig()
         btn:SetScript("OnEnter", function()
           getglobal(this:GetName().."Highlight"):Show()
           UIDropDownMenu_StopCounting(this:GetParent())
-          GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_CURSOR")
+          GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_BOTTOMRIGHT")
           GameTooltip:SetText(this.el_label, 1, 0.82, 0)
           GameTooltip:AddLine(this.el_tooltip, 1, 1, 1, true)
           GameTooltip:Show()
@@ -1158,37 +1208,19 @@ function EasyLoot:CreateConfig()
 
   -- Dropdown creation function (as per your provided working code)
   local function CreateListsDropdown(parent, label, items, width, x, y, name, tooltip)
-    local dropdown = CreateFrame("Button", name, parent, "UIDropDownMenuTemplate")  -- Name the frame properly
-    -- dropdown:SetPoint("TOPLEFT", x, y)
-
-    dropdown:SetScript("OnEnter", function()
-      GameTooltip:SetOwner(this, "ANCHOR_LEFT") 
-      GameTooltip:SetText(tooltip, 1, 1, 0)  -- Tooltip title
-      -- GameTooltip:AddLine("Re-apply the Applied layout as people join the raid", 1, 1, 1, true)  -- Tooltip description
-      GameTooltip:Show()
-    end)
-    dropdown:SetScript("OnLeave", function()
-      GameTooltip:Hide()
-    end)
-    
-    local dropdownLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    dropdownLabel:SetPoint("TOP", x-210, y)
-    dropdownLabel:SetText(label)
-    dropdown:SetPoint("TOP", dropdownLabel, "BOTTOM", 0, 0)
+    local dropdown = CreateFrame("Button", name, parent, "UIDropDownMenuTemplate")
+    dropdown.el_default_text = label
+    dropdown:SetPoint("TOP", x - 210, y)
 
     -- local selectedValue = defaultValue
 
-    -- Function to handle item add/removal
-    local function OnClick(self)
-        UIDropDownMenu_SetSelectedName(dropdown, self:GetText())
-        dropdown.selected = self:GetText()
-    end
-
     -- Manual initialization for the dropdown
     local function InitializeDropdown()
-      -- create the add and remove items dialogues
-      local info = {}  -- Create a new info table for each dropdown entry
-      info.text = "Add New item"  -- The text displayed in the dropdown
+      local btnIdx = 0
+
+      -- "Add New item" entry
+      local info = {}
+      info.text = "Add New item"
       info.func = function ()
         local add = StaticPopup_Show("ADD_ITEM_NAME", label)
         add.data = items
@@ -1209,7 +1241,6 @@ function EasyLoot:CreateConfig()
         local orig_ChatFrame_OnHyperlinkShow = (function ()
           local orig = ChatFrame_OnHyperlinkShow
           ChatFrame_OnHyperlinkShow = function (link,text,button,a3,a4,a5,a6,a7,a8,a9,a10)
-            -- print(chatFrame)
             if (button == "LeftButton" and IsShiftKeyDown() and not ignoreModifiers and editbox:IsShown()) then
               editbox:Insert(ItemLinkToName(text))
             else
@@ -1228,44 +1259,78 @@ function EasyLoot:CreateConfig()
       info.textR = 0.1
       info.textG = 0.8
       info.textB = 0.1
-      UIDropDownMenu_AddButton(info)  -- Add the dropdown option to the list
+      UIDropDownMenu_AddButton(info)
+      btnIdx = btnIdx + 1
 
-      local info = {}  -- Create a new info table for each dropdown entry
-      info.text = "Remove Item"  -- The text displayed in the dropdown
-      info.func = function ()
-        if not dropdown.selected then
-          el_print("Select an item to remove first.")
-        else
-          local pop = StaticPopup_Show("REM_ITEM_NAME", dropdown.selected, label)
-          pop.data = { items, dropdown.selected, dropdown }
-        end
+      -- tooltip on "Add New item" button
+      local addBtn = getglobal("DropDownList1Button"..btnIdx)
+      if addBtn then
+        addBtn:SetScript("OnEnter", function()
+          getglobal(this:GetName().."Highlight"):Show()
+          UIDropDownMenu_StopCounting(this:GetParent())
+          GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
+          GameTooltip:SetText(label, 1, 0.82, 0)
+          GameTooltip:AddLine(tooltip, 1, 1, 1, true)
+          GameTooltip:AddLine("Right-click an item to remove it.", 0.5, 0.5, 0.5, true)
+          GameTooltip:Show()
+        end)
+        addBtn:SetScript("OnLeave", function()
+          getglobal(this:GetName().."Highlight"):Hide()
+          UIDropDownMenu_StartCounting(this:GetParent())
+          GameTooltip:Hide()
+        end)
       end
-      info.textR = 0.8
-      info.textG = 0.2
-      info.textB = 0.2
-      UIDropDownMenu_AddButton(info)  -- Add the dropdown option to the list
 
+      -- item entries with right-click to remove
       for i, item in ixpairs(items) do
-          local info = {}  -- Create a new info table for each dropdown entry
-          info.text = item  -- The text displayed in the dropdown
-          info.value = item -- The value stored when the item is selected
-          info.func = function () OnClick(this) end   -- Attach the OnClick handler
-          UIDropDownMenu_AddButton(info)  -- Add the dropdown option to the list
+          local info = {}
+          info.text = item
+          info.value = item
+          UIDropDownMenu_AddButton(info)
+          btnIdx = btnIdx + 1
+
+          local btn = getglobal("DropDownList1Button"..btnIdx)
+          if btn then
+            btn.el_remove_item = item
+            btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            btn:SetScript("OnClick", function()
+              if arg1 == "RightButton" then
+                CloseDropDownMenus()
+                local pop = StaticPopup_Show("REM_ITEM_NAME", this.el_remove_item, label)
+                pop.data = { items, this.el_remove_item, dropdown }
+              else
+                UIDropDownMenuButton_OnClick()
+              end
+            end)
+            btn:SetScript("OnEnter", function()
+              getglobal(this:GetName().."Highlight"):Show()
+              UIDropDownMenu_StopCounting(this:GetParent())
+            end)
+            btn:SetScript("OnLeave", function()
+              getglobal(this:GetName().."Highlight"):Hide()
+              UIDropDownMenu_StartCounting(this:GetParent())
+              GameTooltip:Hide()
+            end)
+          end
       end
     end
 
     -- Set up the dropdown, ensuring it is properly initialized with a named frame
     UIDropDownMenu_Initialize(dropdown, InitializeDropdown)
-    UIDropDownMenu_SetWidth(width,dropdown)  -- Set the width of the dropdown
-    -- UIDropDownMenu_SetSelectedValue(dropdown, selectedValue)
+    UIDropDownMenu_SetWidth(width,dropdown)
+    UIDropDownMenu_SetText(dropdown.el_default_text, dropdown)
 
     return dropdown
   end
-  
+
 -- Function to add item to dropdown
 local function AddItemToDropdown(dropdown_list, item)
+  item = TitleCase(item)
+  for _,v in ipairs(dropdown_list) do
+    if string.lower(v) == string.lower(item) then return end
+  end
   table.insert(dropdown_list, item)
-  el_print("Added item: "..item.." to whitelist.")
+  el_print("Added item: "..ITEM_COLOR..item.."|r to whitelist.")
 end
 
 -- Function to remove item from dropdown
@@ -1273,7 +1338,7 @@ local function RemoveItemFromDropdown(dropdown_list, item)
   for i,name in pairs(dropdown_list) do
     if name == item then
       table.remove(dropdown_list,i)
-      el_print("Removed item: "..item.." from whitelist.")
+      el_print("Removed item: "..ITEM_COLOR..item.."|r from whitelist.")
       break
     end
   end
@@ -1282,9 +1347,95 @@ end
 -- Hidden fontstring for measuring edit box text width (EditBox lacks GetStringWidth in 1.12)
 local _popupMeasureFS = UIParent:CreateFontString(nil, "ARTWORK", "ChatFontNormal")
 
+-- Shared popup helpers for wide edit boxes
+local function PopupEditBoxOnTextChanged()
+  local popup = this:GetParent()
+  _popupMeasureFS:SetText(this:GetText())
+  local textWidth = _popupMeasureFS:GetStringWidth()
+  local editBase = 240
+  local popupBase = 420
+  local overflow = textWidth - editBase + 20
+  if overflow > 0 then
+    popup:SetWidth(popupBase + overflow)
+    this:SetWidth(editBase + overflow)
+    if this._borderLeft then
+      local newWidth = this._borderLeftWidth + (editBase - 130) + overflow
+      this._borderLeft:SetWidth(newWidth)
+      this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+    end
+  else
+    popup:SetWidth(popupBase)
+    this:SetWidth(editBase)
+    if this._borderLeft then
+      local newWidth = this._borderLeftWidth + (editBase - 130)
+      this._borderLeft:SetWidth(newWidth)
+      this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+    end
+  end
+end
+
+local function PopupOnShow()
+  local editbox = getglobal(this:GetName() .. "EditBox")
+  if not editbox._borderLeft then
+    for _, region in pairs({editbox:GetRegions()}) do
+      if region.GetTexture and region:GetTexture()
+         and string.find(region:GetTexture(), "Left") then
+        editbox._borderLeft = region
+        editbox._borderLeftWidth = region:GetWidth()
+        break
+      end
+    end
+  end
+  this:SetWidth(420)
+  editbox:SetWidth(240)
+  if editbox._borderLeft then
+    local newWidth = editbox._borderLeftWidth + (240 - 130)
+    editbox._borderLeft:SetWidth(newWidth)
+    editbox._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+  end
+  editbox:SetFocus()
+end
+
+local function PopupOnHide()
+  local editbox = getglobal(this:GetName() .. "EditBox")
+  this:SetWidth(320)
+  editbox:SetWidth(130)
+  if editbox._borderLeft then
+    editbox._borderLeft:SetWidth(editbox._borderLeftWidth)
+    editbox._borderLeft:SetTexCoord(0, editbox._borderLeftWidth / 256, 0, 1)
+  end
+  editbox:SetText("")
+end
+
+local function ParseBuyInput(text)
+  local _,_,numStr,itemName = string.find(text, "^(%d+)x?%s+(.+)$")
+  if not itemName then
+    itemName = text
+    numStr = "20"
+  end
+  local count = tonumber(numStr) or 20
+  itemName = string.gsub(itemName, "^%s*", "")
+  itemName = string.gsub(itemName, "%s*$", "")
+  itemName = TitleCase(itemName)
+  if itemName == "" then return end
+  local found = false
+  for _,entry in ipairs(EasyLootDB.buylist) do
+    if string.lower(entry.name) == string.lower(itemName) then
+      entry.count = count
+      entry.enabled = true
+      found = true
+      break
+    end
+  end
+  if not found then
+    table.insert(EasyLootDB.buylist, { name = itemName, count = count, enabled = true })
+  end
+  el_print(format("Added %dx "..ITEM_COLOR.."%s|r to buy list.", count, itemName))
+end
+
 -- Static Popup Dialog for entering item names
 StaticPopupDialogs["ADD_ITEM_NAME"] = {
-  text = "Add item to %s:",
+  text = "Add item to %s:\nShift-click an item to insert its name.",
   button1 = "Add",
   button2 = "Cancel",
   hasEditBox = true,
@@ -1304,65 +1455,9 @@ StaticPopupDialogs["ADD_ITEM_NAME"] = {
       this:GetParent():Hide()
     end
   end,
-  EditBoxOnTextChanged = function()
-    local popup = this:GetParent()
-    _popupMeasureFS:SetText(this:GetText())
-    local textWidth = _popupMeasureFS:GetStringWidth()
-    local editBase = 240
-    local popupBase = 420
-    local overflow = textWidth - editBase + 20
-    if overflow > 0 then
-      popup:SetWidth(popupBase + overflow)
-      this:SetWidth(editBase + overflow)
-      if this._borderLeft then
-        local newWidth = this._borderLeftWidth + (editBase - 130) + overflow
-        this._borderLeft:SetWidth(newWidth)
-        this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
-      end
-    else
-      popup:SetWidth(popupBase)
-      this:SetWidth(editBase)
-      if this._borderLeft then
-        local newWidth = this._borderLeftWidth + (editBase - 130)
-        this._borderLeft:SetWidth(newWidth)
-        this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
-      end
-    end
-  end,
-  OnShow = function()
-    local editbox = getglobal(this:GetName() .. "EditBox")
-    -- Cache left border texture via GetRegions (same pattern as pfUI nameplates)
-    if not editbox._borderLeft then
-      for _, region in pairs({editbox:GetRegions()}) do
-        if region.GetTexture and region:GetTexture()
-           and string.find(region:GetTexture(), "Left") then
-          editbox._borderLeft = region
-          editbox._borderLeftWidth = region:GetWidth()
-          break
-        end
-      end
-    end
-    -- Reset to wider defaults
-    this:SetWidth(420)
-    editbox:SetWidth(240)
-    if editbox._borderLeft then
-      local newWidth = editbox._borderLeftWidth + (240 - 130)
-      editbox._borderLeft:SetWidth(newWidth)
-      editbox._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
-    end
-    editbox:SetFocus()
-  end,
-  OnHide = function()
-    local editbox = getglobal(this:GetName() .. "EditBox")
-    -- Restore to Blizzard defaults
-    this:SetWidth(320)
-    editbox:SetWidth(130)
-    if editbox._borderLeft then
-      editbox._borderLeft:SetWidth(editbox._borderLeftWidth)
-      editbox._borderLeft:SetTexCoord(0, editbox._borderLeftWidth / 256, 0, 1)
-    end
-    editbox:SetText("")
-  end,
+  EditBoxOnTextChanged = PopupEditBoxOnTextChanged,
+  OnShow = PopupOnShow,
+  OnHide = PopupOnHide,
   enterClicksFirstButton = true,
 }
 
@@ -1376,13 +1471,308 @@ StaticPopupDialogs["REM_ITEM_NAME"] = {
   OnAccept = function(data)
     RemoveItemFromDropdown(data[1], data[2])
     data[3].selected = nil
-    UIDropDownMenu_SetText("", data[3])
+    UIDropDownMenu_SetText(data[3].el_default_text or "", data[3])
   end,
 }
 
--- Dropdowns for adding/removing item names with proper names
-local dropdown1 = CreateListsDropdown(EasyLootConfigFrame, "Need Whitelist", EasyLootDB.needlist, 110, 295, -100, "Dropdown1Frame", "A list of items that will always be Needed, even BoP items.")
-local dropdown2 = CreateListsDropdown(EasyLootConfigFrame, "Greed Whitelist", EasyLootDB.greedlist, 110, 295, -150, "Dropdown2Frame", "A list of items that will always be Greeded, even BoP items.")
-local dropdown3 = CreateListsDropdown(EasyLootConfigFrame, "Pass Whitelist", EasyLootDB.passlist, 110, 295, -200, "Dropdown3Frame", "A list of items that will always be Passed, and not auto-looted.")
+StaticPopupDialogs["ADD_BUY_ITEM"] = {
+  text = "Enter quantity and item name: 20 Sacred Candle\nShift-click an item to insert its name.",
+  button1 = "Add",
+  button2 = "Cancel",
+  hasEditBox = true,
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  OnAccept = function()
+    local text = getglobal(this:GetParent():GetName() .. "EditBox"):GetText()
+    if text ~= "" then ParseBuyInput(text) end
+  end,
+  EditBoxOnEnterPressed = function()
+    local text = this:GetText()
+    if text ~= "" then ParseBuyInput(text) end
+    this:GetParent():Hide()
+  end,
+  EditBoxOnTextChanged = PopupEditBoxOnTextChanged,
+  OnShow = PopupOnShow,
+  OnHide = PopupOnHide,
+  enterClicksFirstButton = true,
+}
+
+StaticPopupDialogs["REM_BUY_ITEM"] = {
+  text = "Really remove %s from buy list?",
+  button1 = "Remove",
+  button2 = "Cancel",
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  OnAccept = function(data)
+    local displayName = data[1]
+    for i,entry in ipairs(EasyLootDB.buylist) do
+      local entryDisplay = entry.count .. "x " .. entry.name
+      if entryDisplay == displayName then
+        table.remove(EasyLootDB.buylist, i)
+        el_print("Removed "..ITEM_COLOR .. entry.name .. "|r from buy list.")
+        break
+      end
+    end
+    data[2].selected = nil
+    UIDropDownMenu_SetText(data[2].el_default_text or "", data[2])
+  end,
+}
+
+  ----------------------------------------------------------------------
+  -- Buy List dropdown
+  local function CreateBuyListDropdown(parent, x, y)
+    local dropdown = CreateFrame("Button", "EasyLootBuyListDropdown", parent, "UIDropDownMenuTemplate")
+    dropdown.el_default_text = "Buy List"
+    dropdown:SetPoint("TOP", x - 210, y)
+
+    local function InitializeDropdown()
+      local btnIdx = 0
+
+      -- "Add New item" entry
+      local info = {}
+      info.text = "Add New item"
+      info.func = function ()
+        local add = StaticPopup_Show("ADD_BUY_ITEM")
+        local editbox = getglobal(add:GetName().."EditBox")
+
+        local orig_ContainerFrameItemButton_OnClick = (function ()
+          local orig = ContainerFrameItemButton_OnClick
+          ContainerFrameItemButton_OnClick = function (button,ignoreModifiers,a3,a4,a5,a6,a7,a8,a9,a10)
+            if (button == "LeftButton" and IsShiftKeyDown() and not ignoreModifiers and editbox:IsShown()) then
+              editbox:Insert(ItemLinkToName(GetContainerItemLink(this:GetParent():GetID(), this:GetID())))
+            else
+              orig(button,ignoreModifiers,a3,a4,a5,a6,a7,a8,a9,a10)
+            end
+          end
+          return orig
+        end)()
+
+        local orig_ChatFrame_OnHyperlinkShow = (function ()
+          local orig = ChatFrame_OnHyperlinkShow
+          ChatFrame_OnHyperlinkShow = function (link,text,button,a3,a4,a5,a6,a7,a8,a9,a10)
+            if (button == "LeftButton" and IsShiftKeyDown() and not ignoreModifiers and editbox:IsShown()) then
+              editbox:Insert(ItemLinkToName(text))
+            else
+              orig(link,text,button,a3,a4,a5,a6,a7,a8,a9,a10)
+            end
+          end
+          return orig
+        end)()
+
+        add:SetScript("OnHide", function()
+          getglobal(this:GetName() .. "EditBox"):SetText("")
+          ContainerFrameItemButton_OnClick = orig_ContainerFrameItemButton_OnClick
+          ChatFrame_OnHyperlinkShow = orig_ChatFrame_OnHyperlinkShow
+        end)
+      end
+      info.textR = 0.1
+      info.textG = 0.8
+      info.textB = 0.1
+      UIDropDownMenu_AddButton(info)
+      btnIdx = btnIdx + 1
+
+      -- tooltip on "Add New item" button
+      local addBtn = getglobal("DropDownList1Button"..btnIdx)
+      if addBtn then
+        addBtn:SetScript("OnEnter", function()
+          getglobal(this:GetName().."Highlight"):Show()
+          UIDropDownMenu_StopCounting(this:GetParent())
+          GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
+          GameTooltip:SetText("Buy List", 1, 0.82, 0)
+          GameTooltip:AddLine("Format: 20 Sacred Candle (or 20x Sacred Candle)", 1, 1, 1, true)
+          GameTooltip:AddLine("Right-click an item to remove it.", 0.5, 0.5, 0.5, true)
+          GameTooltip:Show()
+        end)
+        addBtn:SetScript("OnLeave", function()
+          getglobal(this:GetName().."Highlight"):Hide()
+          UIDropDownMenu_StartCounting(this:GetParent())
+          GameTooltip:Hide()
+        end)
+      end
+
+      -- item entries with right-click to remove
+      for _,entry in ipairs(EasyLootDB.buylist) do
+        if entry.enabled == nil then entry.enabled = true end
+        local displayText = entry.count .. "x " .. entry.name
+        local thisEntry = entry
+        local info = {}
+        info.text = displayText
+        info.value = entry.name
+        info.keepShownOnClick = 1
+        info.checked = entry.enabled and 1 or nil
+        info.func = function ()
+          thisEntry.enabled = not thisEntry.enabled
+        end
+        UIDropDownMenu_AddButton(info)
+        btnIdx = btnIdx + 1
+
+        local btn = getglobal("DropDownList1Button"..btnIdx)
+        if btn then
+          btn.el_remove_display = displayText
+          btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+          btn:SetScript("OnClick", function()
+            if arg1 == "RightButton" then
+              CloseDropDownMenus()
+              local pop = StaticPopup_Show("REM_BUY_ITEM", this.el_remove_display)
+              pop.data = { this.el_remove_display, dropdown }
+            else
+              UIDropDownMenuButton_OnClick()
+            end
+          end)
+          btn:SetScript("OnEnter", function()
+            getglobal(this:GetName().."Highlight"):Show()
+            UIDropDownMenu_StopCounting(this:GetParent())
+          end)
+          btn:SetScript("OnLeave", function()
+            getglobal(this:GetName().."Highlight"):Hide()
+            UIDropDownMenu_StartCounting(this:GetParent())
+            GameTooltip:Hide()
+          end)
+        end
+      end
+    end
+
+    UIDropDownMenu_Initialize(dropdown, InitializeDropdown)
+    UIDropDownMenu_SetWidth(110, dropdown)
+    UIDropDownMenu_SetText(dropdown.el_default_text, dropdown)
+
+    return dropdown
+  end
+
+-- Right-column dropdown layout (all positions in one spot)
+local right_col_dropdowns = {
+  { type = "options",   y = -45  },
+  { type = "buylist",   y = -80  },
+  { type = "whitelist", y = -215, label = "Need List",  list = "needlist",  tooltip = "A list of items that will always be Needed, even BoP items." },
+  { type = "whitelist", y = -245, label = "Greed List", list = "greedlist", tooltip = "A list of items that will always be Greeded, even BoP items." },
+  { type = "whitelist", y = -275, label = "Pass List",  list = "passlist",  tooltip = "A list of items that will always be Passed, and not auto-looted." },
+}
+local wl_idx = 0
+for _,dd in ipairs(right_col_dropdowns) do
+  if dd.type == "options" then
+    optionsDropdown:SetPoint("TOP", 85, dd.y)
+  elseif dd.type == "buylist" then
+    CreateBuyListDropdown(EasyLootConfigFrame, 295, dd.y)
+  elseif dd.type == "whitelist" then
+    wl_idx = wl_idx + 1
+    CreateListsDropdown(EasyLootConfigFrame, dd.label, EasyLootDB[dd.list], 110, 295, dd.y, "Dropdown"..wl_idx.."Frame", dd.tooltip)
+  end
+end
+
+  ----------------------------------------------------------------------
+  -- Minimap button (shape-aware, based on MBF's snapMinimap approach)
+  local MinimapShapes = {
+    ["ROUND"]                   = {true, true, true, true},
+    ["SQUARE"]                  = {false, false, false, false},
+    ["CORNER-TOPLEFT"]          = {false, false, false, true},
+    ["CORNER-TOPRIGHT"]         = {false, false, true, false},
+    ["CORNER-BOTTOMLEFT"]       = {false, true, false, false},
+    ["CORNER-BOTTOMRIGHT"]      = {true, false, false, false},
+    ["SIDE-LEFT"]               = {false, true, false, true},
+    ["SIDE-RIGHT"]              = {true, false, true, false},
+    ["SIDE-TOP"]                = {false, false, true, true},
+    ["SIDE-BOTTOM"]             = {true, true, false, false},
+    ["TRICORNER-TOPLEFT"]       = {false, true, true, true},
+    ["TRICORNER-TOPRIGHT"]      = {true, false, true, true},
+    ["TRICORNER-BOTTOMLEFT"]    = {true, true, false, true},
+    ["TRICORNER-BOTTOMRIGHT"]   = {true, true, true, false},
+  }
+
+  local function GetMinimapShapeCompat()
+    if Squeenix then return "SQUARE" end
+    if GetMinimapShape then return GetMinimapShape() or "ROUND" end
+    if simpleMinimap_Skins then
+      local skins = { "ROUND", "SQUARE", "CORNER-BOTTOMLEFT", "CORNER-BOTTOMRIGHT", "CORNER-TOPRIGHT", "CORNER-TOPLEFT" }
+      return skins[simpleMinimap_Skins.db.profile.skin] or "ROUND"
+    end
+    if pfUI and pfUI_config and pfUI_config["disabled"] and pfUI_config["disabled"]["minimap"] ~= "1" then return "SQUARE" end
+    return "ROUND"
+  end
+
+  local minimapBtn = CreateFrame("Button", "EasyLootMinimapButton", Minimap)
+  minimapBtn:SetWidth(32)
+  minimapBtn:SetHeight(32)
+  minimapBtn:SetFrameStrata("MEDIUM")
+  minimapBtn:SetFrameLevel(8)
+  minimapBtn:SetToplevel(true)
+  minimapBtn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+  local icon = minimapBtn:CreateTexture(nil, "ARTWORK")
+  icon:SetTexture("Interface\\Icons\\INV_Box_02")
+  icon:SetWidth(20)
+  icon:SetHeight(20)
+  icon:SetPoint("CENTER", 0, 0)
+
+  local border = minimapBtn:CreateTexture(nil, "OVERLAY")
+  border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+  border:SetWidth(56)
+  border:SetHeight(56)
+  border:SetPoint("TOPLEFT", 0, 0)
+
+  local function MinimapButton_UpdatePosition(angle)
+    local mapSize = (Minimap:GetWidth() / 2)
+    local rad = math.rad(angle)
+    local x = math.cos(rad)
+    local y = math.sin(rad)
+
+    -- determine quadrant and check if round or square in that corner
+    local q = 1
+    if x < 0 then q = q + 1 end
+    if y > 0 then q = q + 2 end
+    local quadTable = MinimapShapes[GetMinimapShapeCompat()] or MinimapShapes["ROUND"]
+    if quadTable[q] then
+      x = x * mapSize
+      y = y * mapSize
+    else
+      local diagDist = math.sqrt(2 * mapSize * mapSize)
+      x = math.max(-mapSize, math.min(x * diagDist, mapSize))
+      y = math.max(-mapSize, math.min(y * diagDist, mapSize))
+    end
+
+    minimapBtn:ClearAllPoints()
+    minimapBtn:SetPoint("CENTER", Minimap, "CENTER", x, y)
+  end
+
+  EasyLootDB.minimap_angle = EasyLootDB.minimap_angle or 220
+  MinimapButton_UpdatePosition(EasyLootDB.minimap_angle)
+
+  minimapBtn:RegisterForDrag("LeftButton")
+  minimapBtn:SetScript("OnDragStart", function()
+    this.dragging = true
+  end)
+  minimapBtn:SetScript("OnDragStop", function()
+    this.dragging = false
+  end)
+  minimapBtn:SetScript("OnUpdate", function()
+    if not this.dragging then return end
+    local mx, my = Minimap:GetCenter()
+    local cx, cy = GetCursorPosition()
+    local scale = Minimap:GetEffectiveScale()
+    cx, cy = cx / scale, cy / scale
+    local angle = math.deg(math.atan2(cy - my, cx - mx))
+    EasyLootDB.minimap_angle = angle
+    MinimapButton_UpdatePosition(angle)
+  end)
+
+  minimapBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  minimapBtn:SetScript("OnClick", function()
+    if EasyLootConfigFrame:IsShown() then
+      EasyLootConfigFrame:Hide()
+    else
+      EasyLootConfigFrame:Show()
+    end
+  end)
+  minimapBtn:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+    GameTooltip:SetText("EasyLoot", 1, 0.82, 0)
+    GameTooltip:AddLine("Click to toggle config.", 1, 1, 1)
+    GameTooltip:AddLine("Drag to move.", 0.5, 0.5, 0.5)
+    GameTooltip:Show()
+  end)
+  minimapBtn:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+  end)
 
 end
