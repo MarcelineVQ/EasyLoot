@@ -1,5 +1,7 @@
 -- || Made by and for Weird Vibes of Turtle WoW || --
 
+local DEV_MODE = false -- set to true to keep config frame open on reload
+
 local function print(msg)
   DEFAULT_CHAT_FRAME:AddMessage(msg)
 end
@@ -83,14 +85,72 @@ end
 
 local EasyLoot = CreateFrame("Frame","EasyLoot")
 
-EasyLoot.OFF = -1
-EasyLoot.PASS = 0
-EasyLoot.NEED = 1
-EasyLoot.GREED = 2
-local OFF,PASS,NEED,GREED = EasyLoot.OFF,EasyLoot.PASS,EasyLoot.NEED,EasyLoot.GREED
-
 local binds = {}
 local ITEM_COLOR = "|cff88bbdd"
+
+------------------------------
+-- Constants (single table = one upvalue)
+------------------------------
+
+local C = {
+  -- Loot mode values
+  OFF   = -1,
+  PASS  = 0,
+  NEED  = 1,
+  GREED = 2,
+
+  -- Tooltip title color (WoW standard gold)
+  TOOLTIP_R       = 1,
+  TOOLTIP_G       = 0.82,
+  TOOLTIP_B       = 0,
+
+  -- Config frame
+  FRAME_W         = 260,
+  FRAME_H         = 325,
+
+  -- Grid layout (main config panel)
+  GRID_START_Y    = -52,         -- first grid row y offset on main panel
+  GRID_ROW_HEIGHT = 28,          -- vertical spacing per grid row
+  GRID_LEFT       = 20,          -- x position of grid labels
+  GRID_ROW_H      = 20,          -- grid row button height
+  ICON_COL        = 65,          -- x position of icon column (arrow / Other icon)
+
+  -- Icons and highlights
+  ICON_SIZE       = 24,          -- loot mode icon dimensions
+  ICON_HIGHLIGHT  = 36,          -- glow border around popup icons
+  ICON_SPACING    = 28,          -- horizontal gap between popup icons
+  ARROW_SIZE      = 28,          -- arrow texture size
+  DIM_ALPHA       = 0.3,         -- inactive icon vertex color
+  GLOW_ALPHA      = 0.8,         -- highlight glow alpha
+
+  -- Popup layout (raid category popup)
+  MAX_POPUP_ROWS  = 0,           -- computed from raid_config after it's defined
+  ROW_HEIGHT      = 26,          -- vertical spacing per popup row
+  ROW_START_Y     = -28,         -- first popup row y offset (below title)
+  POPUP_PAD       = 10,          -- popup internal padding
+  POPUP_TITLE_Y   = -10,         -- popup title y offset
+  POPUP_ANCHOR_X  = 8,           -- popup x offset from anchor
+  POPUP_ANCHOR_Y  = 4,           -- popup y offset from anchor
+  SEPARATOR_GAP   = 4,           -- extra gap before separator rows (e.g. Other)
+
+  -- Dropdown positioning
+  DROPDOWN_OFFSET = 210,         -- UIDropDownMenu x correction factor
+  DROPDOWN_WIDTH  = 110,         -- standard dropdown width
+
+  -- Static popup edit-box dimensions
+  EDITBOX_BASE_W    = 240,       -- edit box width when expanded
+  EDITBOX_DEFAULT_W = 130,       -- edit box width when collapsed
+  POPUP_BASE_W      = 420,       -- popup width when expanded
+  POPUP_DEFAULT_W   = 320,       -- popup width when collapsed
+  BORDER_TEX_W      = 256,       -- border texture base width for tex coords
+}
+
+-- These depend on the values above, so they're set after the table
+C.MODE_ORDER    = { C.NEED, C.GREED, C.PASS, C.OFF }
+C.NUM_LOOT_MODES = table.getn(C.MODE_ORDER)
+
+-- Local aliases for brevity (used heavily in loot logic)
+local OFF, PASS, NEED, GREED = C.OFF, C.PASS, C.NEED, C.GREED
 
 ------------------------------
 -- Table Functions
@@ -215,6 +275,11 @@ local zg_bijou = {
   "Yellow Hakkari Bijou",
 }
 
+local zg_trash_bop = {
+  "Sceptre of Smiting",
+  "Blood Scythe",
+}
+
 local scarab = {
   "Bone Scarab",
   "Bronze Scarab",
@@ -284,6 +349,12 @@ local bwl_trash_bop = {
   "Interlaced Shadow Jerkin",
 }
 
+local aq40_mount = {
+  "Blue Qiraji Resonating Crystal",
+  "Green Qiraji Resonating Crystal",
+  "Yellow Qiraji Resonating Crystal",
+}
+
 local aq40_trash_bop = {
   "Shard of the Fallen Star",
   "Gloves of the Redeemed Prophecy",
@@ -341,7 +412,7 @@ local raid_config = {
   { zone = "Zul'Gurub", short = "ZG", categories = {
     { label = "Coins", items = zg_coin, key = "zg_coin", default = NEED },
     { label = "Bijou", items = zg_bijou, key = "zg_bijou", default = NEED },
-    {},
+    { label = "Trash BoPs", items = zg_trash_bop, key = "zg_trash", default = OFF },
     { label = "BoEs", key = "zg_boe", default = NEED, is_boe = true },
   }},
   { zone = "Ruins of Ahn'Qiraj", short = "AQ20", categories = {
@@ -351,13 +422,13 @@ local raid_config = {
     { label = "BoEs", key = "aq20_boe", default = NEED, is_boe = true },
   }},
   { zone = "Molten Core", short = "MC", categories = {
-    { label = "Ingot", items = {"Sulfuron Ingot"}, key = "mc_ingot", default = OFF },
+    { label = "Sulfuron Ingot", items = {"Sulfuron Ingot"}, key = "mc_ingot", default = OFF },
     { label = "Mats", items = mc_mat, key = "mc_mat", default = OFF },
     { label = "Trash BoPs", items = mc_trash_bop, key = "mc_trash", default = OFF },
     { label = "BoEs", key = "mc_boe", default = OFF, is_boe = true },
   }},
   { zone = "Blackwing Lair", short = "BWL", categories = {
-    { label = "Elementium", items = {}, key = "bwl_mat", default = OFF },
+    { label = "Elementium Ore", items = {}, key = "bwl_mat", default = OFF },
     {},
     { label = "Trash BoPs", items = bwl_trash_bop, key = "bwl_trash", default = OFF },
     { label = "BoEs", key = "bwl_boe", default = OFF, is_boe = true },
@@ -371,6 +442,8 @@ local raid_config = {
   { zone = "Ahn'Qiraj", short = "AQ40", categories = {
     { label = "Idols", items = idol_aq40, key = "aq40_idol", default = OFF },
     { label = "Scarabs", items = scarab, key = "aq40_scarab", default = OFF },
+    { label = "Red Mount", items = {"Red Qiraji Resonating Crystal"}, key = "aq40_red_mount", default = OFF },
+    { label = "B/Y/G Mounts", items = aq40_mount, key = "aq40_mount", default = OFF },
     { label = "Trash BoPs", items = aq40_trash_bop, key = "aq40_trash", default = OFF },
     { label = "BoEs", key = "aq40_boe", default = OFF, is_boe = true },
   }},
@@ -387,6 +460,13 @@ local raid_config = {
     { label = "BoEs", key = "kara_boe", default = OFF, is_boe = true },
   }},
 }
+
+-- Derive max popup rows from raid_config (so adding categories never needs a manual bump)
+for _, raid in ipairs(raid_config) do
+  local n = 0
+  for _, cat in ipairs(raid.categories) do if cat.key then n = n + 1 end end
+  if n > C.MAX_POPUP_ROWS then C.MAX_POPUP_ROWS = n end
+end
 
 ------------------------------
 -- Loot Functions
@@ -953,12 +1033,10 @@ end
 
 function EasyLoot:CreateConfig()
 
-  local loot_quality_dropdown = { [-1] = "Off", [0] = "Pass", [2] = "Greed", [1] = "Need" }
-
   -- Create main frame for the configuration menu
   local EasyLootConfigFrame = CreateFrame("Frame", "EasyLootConfigFrame", UIParent)
-  EasyLootConfigFrame:SetWidth(360)
-  EasyLootConfigFrame:SetHeight(325)
+  EasyLootConfigFrame:SetWidth(C.FRAME_W)
+  EasyLootConfigFrame:SetHeight(C.FRAME_H)
   EasyLootConfigFrame:SetPoint("CENTER", UIParent, "CENTER")  -- Centered frame
   EasyLootConfigFrame:SetBackdrop({
       bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -966,7 +1044,8 @@ function EasyLoot:CreateConfig()
       tile = true, tileSize = 32, edgeSize = 32,
       insets = { left = 11, right = 12, top = 12, bottom = 11 }
   })
-  EasyLootConfigFrame:Hide()
+  if not DEV_MODE then EasyLootConfigFrame:Hide() end
+  table.insert(UISpecialFrames, "EasyLootConfigFrame")
 
   -- Make the frame draggable
   EasyLootConfigFrame:SetMovable(true)
@@ -1014,7 +1093,7 @@ function EasyLoot:CreateConfig()
       -- dropdown:SetPoint("TOPLEFT", x, y)
       
       local dropdownLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-      dropdownLabel:SetPoint("TOP", x-210, y)
+      dropdownLabel:SetPoint("TOP", x - C.DROPDOWN_OFFSET, y)
       dropdownLabel:SetText(label)
       dropdown:SetPoint("TOP", dropdownLabel, "BOTTOM", 0, 0)
 
@@ -1052,122 +1131,278 @@ function EasyLoot:CreateConfig()
 
   -- Icon state definitions for raid loot toggles
   local state_icons = {
-    [NEED]  = { tex = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = "Need" },
-    [GREED] = { tex = "Interface\\Buttons\\UI-GroupLoot-Coin-Up", label = "Greed" },
-    [PASS]  = { tex = "Interface\\Buttons\\UI-GroupLoot-Pass-Up", label = "Pass" },
-    [OFF]   = { tex = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = "Off", r = 0.15, g = 0.15, b = 0.15 },
+    [NEED]  = { tex = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = "Need", y = -1.5 },
+    [GREED] = { tex = "Interface\\Buttons\\UI-GroupLoot-Coin-Up", label = "Greed", y = -2.5 },
+    [PASS]  = { tex = "Interface\\Buttons\\UI-GroupLoot-Pass-Up", label = "Pass", y = 0 },
+    [OFF]   = { tex = "Interface\\FrameXML\\LFT\\images\\readycheck-notready", label = "Off", y = 0 },
   }
   local state_cycle = { [NEED] = GREED, [GREED] = PASS, [PASS] = OFF, [OFF] = NEED }
 
-  local function CreateStateIcon(parent, cat, x, y)
-    local btn = CreateFrame("Button", nil, parent)
-    btn:SetWidth(24)
-    btn:SetHeight(24)
-    btn:SetPoint("TOPLEFT", x, y)
+  ------------------------------------------------------------------
+  -- Raid loot popup (shared, populated per-raid on click)
+  ------------------------------------------------------------------
+  local activeLabel = nil -- track which raid label has a locked highlight
 
-    local tex = btn:CreateTexture(nil, "ARTWORK")
-    tex:SetAllPoints()
+  local popupOverlay = CreateFrame("Frame", "EasyLootPopupOverlay", UIParent)
+  popupOverlay:SetFrameStrata("FULLSCREEN_DIALOG")
+  popupOverlay:SetAllPoints(UIParent)
+  popupOverlay:EnableMouse(true)
+  popupOverlay:Hide()
+  popupOverlay:SetScript("OnMouseDown", function()
+    popupOverlay:Hide()
+  end)
+  popupOverlay:SetScript("OnHide", function()
+    if activeLabel then
+      activeLabel:UnlockHighlight()
+      activeLabel = nil
+    end
+  end)
+  table.insert(UISpecialFrames, "EasyLootPopupOverlay")
 
-    local function UpdateIcon()
-      local state = EasyLootDB.settings[cat.key]
-      local info = state_icons[state] or state_icons[OFF]
-      tex:SetTexture(info.tex)
-      if info.r then
-        tex:SetVertexColor(info.r, info.g, info.b)
+  local raidPopup = CreateFrame("Frame", "EasyLootRaidPopup", popupOverlay)
+  raidPopup:SetWidth(245)
+  raidPopup:SetBackdrop({
+    bgFile = "Interface\\Buttons\\WHITE8x8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 8, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+  })
+  raidPopup:SetBackdropColor(0.05, 0.05, 0.05, 1)
+  raidPopup:EnableMouse(true)
+
+  local popupTitle = raidPopup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  popupTitle:SetPoint("TOP", 0, C.POPUP_TITLE_Y)
+
+  -- Pre-create popup rows
+  local popupRows = {}
+  for i = 1, C.MAX_POPUP_ROWS do
+    local row = {}
+    local yOff = C.ROW_START_Y - (i - 1) * C.ROW_HEIGHT
+
+    row.label = raidPopup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    row.label:SetPoint("TOPLEFT", C.POPUP_PAD, yOff - 4)
+    row.label:SetJustifyH("LEFT")
+
+    row.buttons = {}
+    for j = 1, C.NUM_LOOT_MODES do
+      local btn = CreateFrame("Button", nil, raidPopup)
+      btn:SetWidth(C.ICON_SIZE)
+      btn:SetHeight(C.ICON_SIZE)
+      btn:SetPoint("TOPLEFT", (j - 1) * C.ICON_SPACING, yOff)
+
+      local tex = btn:CreateTexture(nil, "ARTWORK")
+      tex:SetWidth(C.ICON_SIZE)
+      tex:SetHeight(C.ICON_SIZE)
+      tex:SetPoint("CENTER", 0, 0)
+      btn.icon = tex
+
+      local hl = btn:CreateTexture(nil, "OVERLAY")
+      hl:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+      hl:SetBlendMode("ADD")
+      hl:SetWidth(C.ICON_HIGHLIGHT)
+      hl:SetHeight(C.ICON_HIGHLIGHT)
+      hl:SetPoint("CENTER", 0, 0)
+      hl:SetAlpha(C.GLOW_ALPHA)
+      hl:Hide()
+      btn.highlight = hl
+
+      btn.mode = C.MODE_ORDER[j]
+      row.buttons[j] = btn
+    end
+
+    popupRows[i] = row
+  end
+
+  local function UpdatePopupRow(rowIdx, currentMode)
+    local row = popupRows[rowIdx]
+    for j = 1, C.NUM_LOOT_MODES do
+      local btn = row.buttons[j]
+      local info = state_icons[btn.mode]
+      btn.icon:SetTexture(info.tex)
+      btn.icon:ClearAllPoints()
+      btn.icon:SetPoint("CENTER", 0, info.y or 0)
+      if btn.mode == currentMode then
+        btn.icon:SetVertexColor(1, 1, 1)
       else
-        tex:SetVertexColor(1, 1, 1)
+        btn.icon:SetVertexColor(C.DIM_ALPHA, C.DIM_ALPHA, C.DIM_ALPHA)
+      end
+      btn.highlight:Hide()
+    end
+  end
+
+  local function ShowRaidPopup(raid, anchor)
+    -- Unlock previous label highlight, lock the new one
+    if activeLabel then activeLabel:UnlockHighlight() end
+    activeLabel = anchor
+    anchor:LockHighlight()
+
+    popupTitle:SetText(raid.zone)
+
+    -- First pass: set labels and measure widest
+    local rowIdx = 0
+    local maxLabelW = 0
+    for _, cat in ipairs(raid.categories) do
+      if cat.key then
+        rowIdx = rowIdx + 1
+        local row = popupRows[rowIdx]
+        row.label:SetText(cat.label)
+        row.label:Show()
+        local w = row.label:GetStringWidth()
+        if w > maxLabelW then maxLabelW = w end
       end
     end
 
-    UpdateIcon()
+    -- Compute icon column and popup width
+    local iconsX = C.POPUP_PAD + maxLabelW + C.POPUP_PAD
+    local popupW = iconsX + C.NUM_LOOT_MODES * C.ICON_SPACING + C.POPUP_PAD
 
-    local function ShowTooltip()
-      GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-      local state = EasyLootDB.settings[cat.key]
-      local info = state_icons[state] or state_icons[OFF]
-      GameTooltip:SetText(cat.label, 1, 0.82, 0)
-      GameTooltip:AddLine("Current: " .. info.label, 1, 1, 1)
-      GameTooltip:AddLine("Click to cycle", 0.5, 0.5, 0.5)
-      GameTooltip:Show()
+    -- Second pass: position buttons and set up handlers
+    local idx = 0
+    for _, cat in ipairs(raid.categories) do
+      if cat.key then
+        idx = idx + 1
+        local row = popupRows[idx]
+
+        for j = 1, C.NUM_LOOT_MODES do
+          local btn = row.buttons[j]
+          btn.cat_key = cat.key
+          btn.rowIdx = idx
+          btn:ClearAllPoints()
+          btn:SetPoint("TOPLEFT", iconsX + (j - 1) * C.ICON_SPACING, C.ROW_START_Y - (idx - 1) * C.ROW_HEIGHT)
+          btn:Show()
+
+          btn:SetScript("OnClick", function()
+            EasyLootDB.settings[this.cat_key] = this.mode
+            UpdatePopupRow(this.rowIdx, this.mode)
+          end)
+
+          btn:SetScript("OnEnter", function()
+            this.highlight:Show()
+            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+            local info = state_icons[this.mode]
+            GameTooltip:SetText(info.label, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
+            GameTooltip:Show()
+          end)
+          btn:SetScript("OnLeave", function()
+            this.highlight:Hide()
+            GameTooltip:Hide()
+          end)
+        end
+
+        UpdatePopupRow(idx, EasyLootDB.settings[cat.key])
+      end
     end
 
-    btn:SetScript("OnClick", function()
-      local current = EasyLootDB.settings[cat.key]
-      EasyLootDB.settings[cat.key] = state_cycle[current] or NEED
-      UpdateIcon()
-      ShowTooltip()
-    end)
+    for i = idx + 1, C.MAX_POPUP_ROWS do
+      popupRows[i].label:Hide()
+      for j = 1, C.NUM_LOOT_MODES do
+        popupRows[i].buttons[j]:Hide()
+      end
+    end
 
-    btn:SetScript("OnEnter", function()
-      ShowTooltip()
-    end)
-
-    btn:SetScript("OnLeave", function()
-      GameTooltip:Hide()
-    end)
-
-    return btn
+    raidPopup:SetWidth(popupW)
+    raidPopup:SetHeight(C.POPUP_PAD - C.ROW_START_Y + idx * C.ROW_HEIGHT)
+    raidPopup:ClearAllPoints()
+    raidPopup:SetPoint("TOPLEFT", anchor, "TOPRIGHT", C.POPUP_ANCHOR_X, C.POPUP_ANCHOR_Y)
+    popupOverlay:Show()
   end
 
-  -- Raid sections (generated from raid_config)
-  local raid_y = -52
-  for _,raid in ipairs(raid_config) do
-    local zone_name = raid.zone
+  -- Grid button sizing
+  local raidBtnWidth = (C.ICON_COL - C.GRID_LEFT) + C.ARROW_SIZE
+  -- Right column dropdown x: UIDropDownMenu visual left ≈ C.FRAME_W/2 + (x - C.DROPDOWN_OFFSET) - 55
+  -- Solve for x so visual left = raidBtnRight + padding
+  local raidBtnRight = C.GRID_LEFT + raidBtnWidth
+  local rightColX = raidBtnRight + 15 - C.FRAME_W / 2 + C.DROPDOWN_OFFSET + 55  -- aligns dropdown visual left to grid right edge
 
-    local labelFrame = CreateFrame("Frame", nil, EasyLootConfigFrame)
-    labelFrame:SetWidth(40)
-    labelFrame:SetHeight(20)
-    labelFrame:SetPoint("TOPLEFT", 20, raid_y - 2)
-    labelFrame:EnableMouse(true)
+  -- Grid rows: raids + "Other" (cycle_key marks it as a cycling row instead of popup)
+  local grid_rows = {}
+  for _,raid in ipairs(raid_config) do
+    table.insert(grid_rows, raid)
+  end
+  table.insert(grid_rows, {
+    zone = "World and Dungeon", short = "Other", separator = true,
+    cycle_key = "general_boe_rule",
+  })
+
+  local raid_y = C.GRID_START_Y
+  for _,row in ipairs(grid_rows) do
+    if row.separator then raid_y = raid_y - C.SEPARATOR_GAP end
+
+    local zone_name = row.zone
+    local this_row = row
+
+    local labelFrame = CreateFrame("Button", nil, EasyLootConfigFrame)
+    labelFrame:SetHeight(C.GRID_ROW_H)
+    labelFrame:SetWidth(raidBtnWidth)
+    labelFrame:SetPoint("TOPLEFT", C.GRID_LEFT, raid_y - 2)
 
     local raidLabel = labelFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     raidLabel:SetPoint("LEFT", 0, 0)
-    raidLabel:SetText(raid.short)
+    raidLabel:SetJustifyH("LEFT")
+    raidLabel:SetText(row.short)
 
-    labelFrame:SetScript("OnEnter", function()
-      GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-      GameTooltip:SetText(zone_name, 1, 0.82, 0)
-      GameTooltip:Show()
-    end)
+    local iconTex = labelFrame:CreateTexture(nil, "ARTWORK")
+    iconTex:SetWidth(C.ARROW_SIZE)
+    iconTex:SetHeight(C.ARROW_SIZE)
+    iconTex:SetPoint("LEFT", C.ICON_COL - C.GRID_LEFT, 0)
+
+    labelFrame:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+    labelFrame:GetHighlightTexture():SetBlendMode("ADD")
+
+    if this_row.cycle_key then
+      -- Cycling row (Other): icon shows current mode, click cycles
+      local function UpdateIcon()
+        local state = EasyLootDB.settings[this_row.cycle_key]
+        local info = state_icons[state] or state_icons[OFF]
+        iconTex:SetTexture(info.tex)
+        iconTex:ClearAllPoints()
+        iconTex:SetPoint("LEFT", C.ICON_COL - C.GRID_LEFT, info.y or 0)
+        if info.r then
+          iconTex:SetVertexColor(info.r, info.g, info.b)
+        else
+          iconTex:SetVertexColor(1, 1, 1)
+        end
+      end
+      UpdateIcon()
+
+      local function ShowCycleTooltip()
+        GameTooltip:SetOwner(labelFrame, "ANCHOR_RIGHT")
+        GameTooltip:SetText(zone_name, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
+        local info = state_icons[EasyLootDB.settings[this_row.cycle_key]] or state_icons[OFF]
+        GameTooltip:AddLine("Current: " .. info.label, 1, 1, 1)
+        GameTooltip:AddLine("Click to cycle", 0.5, 0.5, 0.5)
+        GameTooltip:Show()
+      end
+
+      labelFrame:SetScript("OnClick", function()
+        EasyLootDB.settings[this_row.cycle_key] = state_cycle[EasyLootDB.settings[this_row.cycle_key]] or NEED
+        UpdateIcon()
+        ShowCycleTooltip()
+      end)
+      labelFrame:SetScript("OnEnter", function()
+        ShowCycleTooltip()
+      end)
+    else
+      -- Raid row: arrow icon, click opens popup
+      iconTex:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+
+      labelFrame:SetScript("OnClick", function()
+        ShowRaidPopup(this_row, this)
+      end)
+      labelFrame:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:SetText(zone_name, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
+        GameTooltip:AddLine("Click to configure", 0.5, 0.5, 0.5)
+        GameTooltip:Show()
+      end)
+    end
+
     labelFrame:SetScript("OnLeave", function()
       GameTooltip:Hide()
     end)
 
-    for ci,cat in ipairs(raid.categories) do
-      if cat.key then
-        local x = 65 + (ci - 1) * 28
-        CreateStateIcon(EasyLootConfigFrame, cat, x, raid_y)
-      end
-    end
-
-    raid_y = raid_y - 28
+    raid_y = raid_y - C.GRID_ROW_HEIGHT
   end
-
-
-  -- "Other" row for non-raid BoE rule (world/dungeon)
-  raid_y = raid_y - 4
-  local otherLabel = CreateFrame("Frame", nil, EasyLootConfigFrame)
-  otherLabel:SetWidth(50)
-  otherLabel:SetHeight(20)
-  otherLabel:SetPoint("TOPLEFT", 20, raid_y - 2)
-  otherLabel:EnableMouse(true)
-
-  local otherText = otherLabel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  otherText:SetPoint("LEFT", 0, 0)
-  otherText:SetText("Other")
-
-  otherLabel:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-    GameTooltip:SetText("World and Dungeon", 1, 0.82, 0)
-    GameTooltip:Show()
-  end)
-  otherLabel:SetScript("OnLeave", function()
-    GameTooltip:Hide()
-  end)
-
-  CreateStateIcon(EasyLootConfigFrame,
-    { label = "BoEs", key = "general_boe_rule", is_boe = true },
-    65, raid_y)
 
   ----------------------------------------------------------------------
   -- Additional Options section
@@ -1202,7 +1437,7 @@ function EasyLoot:CreateConfig()
           if this.el_orig_enter then this.el_orig_enter() end
           if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootOptionsDropdown" then return end
           GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_BOTTOMRIGHT")
-          GameTooltip:SetText(this.el_label, 1, 0.82, 0)
+          GameTooltip:SetText(this.el_label, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
           GameTooltip:AddLine(this.el_tooltip, 1, 1, 1, true)
           GameTooltip:Show()
         end)
@@ -1215,7 +1450,7 @@ function EasyLoot:CreateConfig()
   end
 
   UIDropDownMenu_Initialize(optionsDropdown, InitializeOptionsDropdown)
-  UIDropDownMenu_SetWidth(110, optionsDropdown)
+  UIDropDownMenu_SetWidth(C.DROPDOWN_WIDTH, optionsDropdown)
   UIDropDownMenu_SetText("Options", optionsDropdown)
 
   ------------------------------------
@@ -1236,7 +1471,7 @@ function EasyLoot:CreateConfig()
   local function CreateListsDropdown(parent, label, items, width, x, y, name, tooltip)
     local dropdown = CreateFrame("Button", name, parent, "UIDropDownMenuTemplate")
     dropdown.el_default_text = label
-    dropdown:SetPoint("TOP", x - 210, y)
+    dropdown:SetPoint("TOP", x - C.DROPDOWN_OFFSET, y)
 
     -- local selectedValue = defaultValue
 
@@ -1300,7 +1535,7 @@ function EasyLoot:CreateConfig()
           if this.el_orig_enter then this.el_orig_enter() end
           if UIDROPDOWNMENU_OPEN_MENU ~= this.el_dropdown_owner then return end
           GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
-          GameTooltip:SetText(label, 1, 0.82, 0)
+          GameTooltip:SetText(label, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
           GameTooltip:AddLine(tooltip, 1, 1, 1, true)
           GameTooltip:AddLine("Right-click an item to remove it.", 0.5, 0.5, 0.5, true)
           GameTooltip:Show()
@@ -1374,24 +1609,22 @@ local function PopupEditBoxOnTextChanged()
   local popup = this:GetParent()
   _popupMeasureFS:SetText(this:GetText())
   local textWidth = _popupMeasureFS:GetStringWidth()
-  local editBase = 240
-  local popupBase = 420
-  local overflow = textWidth - editBase + 20
+  local overflow = textWidth - C.EDITBOX_BASE_W + 20
   if overflow > 0 then
-    popup:SetWidth(popupBase + overflow)
-    this:SetWidth(editBase + overflow)
+    popup:SetWidth(C.POPUP_BASE_W + overflow)
+    this:SetWidth(C.EDITBOX_BASE_W + overflow)
     if this._borderLeft then
-      local newWidth = this._borderLeftWidth + (editBase - 130) + overflow
+      local newWidth = this._borderLeftWidth + (C.EDITBOX_BASE_W - C.EDITBOX_DEFAULT_W) + overflow
       this._borderLeft:SetWidth(newWidth)
-      this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+      this._borderLeft:SetTexCoord(0, math.min(1, newWidth / C.BORDER_TEX_W), 0, 1)
     end
   else
-    popup:SetWidth(popupBase)
-    this:SetWidth(editBase)
+    popup:SetWidth(C.POPUP_BASE_W)
+    this:SetWidth(C.EDITBOX_BASE_W)
     if this._borderLeft then
-      local newWidth = this._borderLeftWidth + (editBase - 130)
+      local newWidth = this._borderLeftWidth + (C.EDITBOX_BASE_W - C.EDITBOX_DEFAULT_W)
       this._borderLeft:SetWidth(newWidth)
-      this._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+      this._borderLeft:SetTexCoord(0, math.min(1, newWidth / C.BORDER_TEX_W), 0, 1)
     end
   end
 end
@@ -1408,23 +1641,23 @@ local function PopupOnShow()
       end
     end
   end
-  this:SetWidth(420)
-  editbox:SetWidth(240)
+  this:SetWidth(C.POPUP_BASE_W)
+  editbox:SetWidth(C.EDITBOX_BASE_W)
   if editbox._borderLeft then
-    local newWidth = editbox._borderLeftWidth + (240 - 130)
+    local newWidth = editbox._borderLeftWidth + (C.EDITBOX_BASE_W - C.EDITBOX_DEFAULT_W)
     editbox._borderLeft:SetWidth(newWidth)
-    editbox._borderLeft:SetTexCoord(0, math.min(1, newWidth / 256), 0, 1)
+    editbox._borderLeft:SetTexCoord(0, math.min(1, newWidth / C.BORDER_TEX_W), 0, 1)
   end
   editbox:SetFocus()
 end
 
 local function PopupOnHide()
   local editbox = getglobal(this:GetName() .. "EditBox")
-  this:SetWidth(320)
-  editbox:SetWidth(130)
+  this:SetWidth(C.POPUP_DEFAULT_W)
+  editbox:SetWidth(C.EDITBOX_DEFAULT_W)
   if editbox._borderLeft then
     editbox._borderLeft:SetWidth(editbox._borderLeftWidth)
-    editbox._borderLeft:SetTexCoord(0, editbox._borderLeftWidth / 256, 0, 1)
+    editbox._borderLeft:SetTexCoord(0, editbox._borderLeftWidth / C.BORDER_TEX_W, 0, 1)
   end
   editbox:SetText("")
 end
@@ -1547,7 +1780,7 @@ StaticPopupDialogs["REM_BUY_ITEM"] = {
   local function CreateBuyListDropdown(parent, x, y)
     local dropdown = CreateFrame("Button", "EasyLootBuyListDropdown", parent, "UIDropDownMenuTemplate")
     dropdown.el_default_text = "Buy List"
-    dropdown:SetPoint("TOP", x - 210, y)
+    dropdown:SetPoint("TOP", x - C.DROPDOWN_OFFSET, y)
 
     local function InitializeDropdown()
       local btnIdx = 0
@@ -1606,7 +1839,7 @@ StaticPopupDialogs["REM_BUY_ITEM"] = {
           if this.el_orig_enter then this.el_orig_enter() end
           if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootBuyListDropdown" then return end
           GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
-          GameTooltip:SetText("Buy List", 1, 0.82, 0)
+          GameTooltip:SetText("Buy List", C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
           GameTooltip:AddLine("Format: 20 Sacred Candle (or 20x Sacred Candle)", 1, 1, 1, true)
           GameTooltip:AddLine("Right-click an item to remove it.", 0.5, 0.5, 0.5, true)
           GameTooltip:Show()
@@ -1651,7 +1884,7 @@ StaticPopupDialogs["REM_BUY_ITEM"] = {
     end
 
     UIDropDownMenu_Initialize(dropdown, InitializeDropdown)
-    UIDropDownMenu_SetWidth(110, dropdown)
+    UIDropDownMenu_SetWidth(C.DROPDOWN_WIDTH, dropdown)
     UIDropDownMenu_SetText(dropdown.el_default_text, dropdown)
 
     return dropdown
@@ -1668,12 +1901,12 @@ local right_col_dropdowns = {
 local wl_idx = 0
 for _,dd in ipairs(right_col_dropdowns) do
   if dd.type == "options" then
-    optionsDropdown:SetPoint("TOP", 85, dd.y)
+    optionsDropdown:SetPoint("TOP", rightColX - C.DROPDOWN_OFFSET, dd.y)
   elseif dd.type == "buylist" then
-    CreateBuyListDropdown(EasyLootConfigFrame, 295, dd.y)
+    CreateBuyListDropdown(EasyLootConfigFrame, rightColX, dd.y)
   elseif dd.type == "whitelist" then
     wl_idx = wl_idx + 1
-    CreateListsDropdown(EasyLootConfigFrame, dd.label, EasyLootDB[dd.list], 110, 295, dd.y, "Dropdown"..wl_idx.."Frame", dd.tooltip)
+    CreateListsDropdown(EasyLootConfigFrame, dd.label, EasyLootDB[dd.list], C.DROPDOWN_WIDTH, rightColX, dd.y, "Dropdown"..wl_idx.."Frame", dd.tooltip)
   end
 end
 
@@ -1782,7 +2015,7 @@ end
   end)
   minimapBtn:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText("EasyLoot", 1, 0.82, 0)
+    GameTooltip:SetText("EasyLoot", C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
     GameTooltip:AddLine("Click to toggle config.", 1, 1, 1)
     GameTooltip:AddLine("Drag to move.", 0.5, 0.5, 0.5)
     GameTooltip:Show()

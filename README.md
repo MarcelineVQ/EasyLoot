@@ -1,4 +1,4 @@
-# EasyLoot 1.7.0
+# EasyLoot 1.7.2
 Automatic loot rules for instances and groups. Have loot handle itself.
 ---
 `/easyloot` for in game options. `/easyloot reset` to reset frame position.
