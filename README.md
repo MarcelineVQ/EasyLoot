@@ -20,6 +20,7 @@ Best used with [SuperWow](https://github.com/balakethelock/SuperWoW/) enabled.
 * Auto-accept summons.
 * Auto-accept resurrections.
 * Auto-dismount and auto-stand.
+* Auto-unshift for druids outside of combat.
 * Combat plates: show enemy nameplates in combat, hide outside.
 * Automation of many common gossip actions.
 * Automatically turn in Bijou by clicking on Altar of Zanza.

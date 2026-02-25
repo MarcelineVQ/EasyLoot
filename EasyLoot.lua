@@ -484,13 +484,14 @@ local function prettify_roll_type(roll_type)
 end
 
 local toggle_options = {
-  { label = "Auto-Invite",     setting = "auto_invite",     default = true,  tooltip = "Always accept invites from friends or guild members." },
+  { label = "Accept Invite",     setting = "auto_invite",     default = true,  tooltip = "Always accept invites from friends or guild members." },
   { label = "Accept Summon",    setting = "auto_summon",     default = false,  tooltip = "Automatically accept summons." },
   { label = "Accept Resurrect", setting = "auto_resurrect",  default = false,  tooltip = "Automatically accept resurrections." },
   { label = "Buy Items", setting = "auto_buy",         default = true,  tooltip = "Automatically buy enabled items from the vendor purchase list (hold Ctrl to disable)." },
   { label = "Sell Greys", setting = "auto_sell_greys", default = true,  tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
   { label = "Auto-Repair",     setting = "auto_repair",     default = true,  tooltip = "Repair at any valid vendor (hold Ctrl to disable)." },
   { label = "Auto-Dismount",   setting = "auto_dismount",   default = true,  tooltip = "Automatically dismount when trying to use most actions on a mount." },
+  { label = "Auto-Unshift",   setting = "auto_unshift",    default = false, tooltip = "Cancel shapeshift form on shapeshifted error messages when out of combat.", class = "DRUID" },
   { label = "Auto-Stand",      setting = "auto_stand",      default = true,  tooltip = "Automatically stand when trying to use actions while sitting." },
   { label = "Auto-Gossip",     setting = "auto_gossip",     default = true,  tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
   { label = "Combat Plates",  setting = "combat_plates",   default = false, tooltip = "Only show enemy nameplates in combat, hide when leaving combat." },
@@ -781,7 +782,8 @@ function EasyLoot:Dismount()
   -- increases speed -- search for speed based on
   local counter = -1
   local speed = "^Increases speed based"
-  local turtle = "^Slow and steady"
+  local turtle1 = "^Slow and steady"
+  local turtle2 = "^Speed scales with your"
   while true do
     counter = counter + 1
     local index, untilCancelled = GetPlayerBuff(counter)
@@ -792,7 +794,7 @@ function EasyLoot:Dismount()
 
       local desc = elTooltipTextLeft2:GetText()
       if desc then
-        if string.find(desc, speed) or string.find(desc, turtle) then
+        if string.find(desc, speed) or string.find(desc, turtle1) or string.find(desc, turtle2) then
           CancelPlayerBuff(counter)
           return
         end
@@ -801,9 +803,42 @@ function EasyLoot:Dismount()
   end
 end
 
+local shapeshift_forms = {
+  ["Cat Form"] = true,
+  ["Bear Form"] = true,
+  ["Dire Bear Form"] = true,
+  ["Tree of Life Form"] = true,
+  ["Moonkin Form"] = true,
+  ["Aquatic Form"] = true,
+  ["Travel Form"] = true,
+  ["Swift Travel Form"] = true,
+}
+
+function EasyLoot:CancelShapeshift()
+  local counter = -1
+  while true do
+    counter = counter + 1
+    local index, untilCancelled = GetPlayerBuff(counter)
+    if index == -1 then break end
+    if untilCancelled then
+      elTooltip:SetOwner(UIParent, "ANCHOR_PRESERVE")
+      elTooltip:SetPlayerBuff(index)
+      local name = elTooltipTextLeft1:GetText()
+      if name and shapeshift_forms[name] then
+        CancelPlayerBuff(counter)
+        return
+      end
+    end
+  end
+end
+
 function EasyLoot:UI_ERROR_MESSAGE(msg)
   if EasyLootDB.settings.auto_dismount and string.find(arg1, "mounted") then
     EasyLoot:Dismount()
+    UIErrorsFrame:Clear()
+  end
+  if EasyLootDB.settings.auto_unshift and not UnitAffectingCombat("player") and string.find(arg1, "while shapeshifted") then
+    EasyLoot:CancelShapeshift()
     UIErrorsFrame:Clear()
   end
   if EasyLootDB.settings.auto_stand and string.find(arg1, "must be standing") then
@@ -1408,44 +1443,52 @@ function EasyLoot:CreateConfig()
   -- Additional Options section
   local optionsDropdown = CreateFrame("Button", "EasyLootOptionsDropdown", EasyLootConfigFrame, "UIDropDownMenuTemplate")
 
+  local _, playerClass = UnitClass("player")
+
   local function InitializeOptionsDropdown()
-    for idx,opt in ipairs(toggle_options) do
-      local setting_key = opt.setting
-      local info = {}
-      info.text = opt.label
-      info.keepShownOnClick = 1
-      info.checked = EasyLootDB.settings[setting_key] and 1 or nil
-      info.func = function ()
-        EasyLootDB.settings[setting_key] = not EasyLootDB.settings[setting_key]
-        if setting_key == "combat_plates" then
-          if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
-            HideNameplates()
+    local btnIdx = 0
+    for _,opt in ipairs(toggle_options) do
+      if opt.class and opt.class ~= playerClass then
+        -- skip options for other classes
+      else
+        local setting_key = opt.setting
+        local info = {}
+        info.text = opt.label
+        info.keepShownOnClick = 1
+        info.checked = EasyLootDB.settings[setting_key] and 1 or nil
+        info.func = function ()
+          EasyLootDB.settings[setting_key] = not EasyLootDB.settings[setting_key]
+          if setting_key == "combat_plates" then
+            if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
+              HideNameplates()
+            end
           end
         end
-      end
-      UIDropDownMenu_AddButton(info)
+        UIDropDownMenu_AddButton(info)
+        btnIdx = btnIdx + 1
 
-      local btn = getglobal("DropDownList1Button"..idx)
-      if btn then
-        if not btn.el_orig_enter then
-          btn.el_orig_enter = btn:GetScript("OnEnter")
-          btn.el_orig_leave = btn:GetScript("OnLeave")
+        local btn = getglobal("DropDownList1Button"..btnIdx)
+        if btn then
+          if not btn.el_orig_enter then
+            btn.el_orig_enter = btn:GetScript("OnEnter")
+            btn.el_orig_leave = btn:GetScript("OnLeave")
+          end
+          btn.el_label = opt.label
+          btn.el_tooltip = opt.tooltip
+          btn:SetScript("OnEnter", function()
+            if this.el_orig_enter then this.el_orig_enter() end
+            if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootOptionsDropdown" then return end
+            GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_BOTTOMRIGHT")
+            GameTooltip:SetText(this.el_label, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
+            GameTooltip:AddLine(this.el_tooltip, 1, 1, 1, true)
+            GameTooltip:Show()
+          end)
+          btn:SetScript("OnLeave", function()
+            if this.el_orig_leave then this.el_orig_leave() end
+            GameTooltip:Hide()
+          end)
         end
-        btn.el_label = opt.label
-        btn.el_tooltip = opt.tooltip
-        btn:SetScript("OnEnter", function()
-          if this.el_orig_enter then this.el_orig_enter() end
-          if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootOptionsDropdown" then return end
-          GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_BOTTOMRIGHT")
-          GameTooltip:SetText(this.el_label, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
-          GameTooltip:AddLine(this.el_tooltip, 1, 1, 1, true)
-          GameTooltip:Show()
-        end)
-        btn:SetScript("OnLeave", function()
-          if this.el_orig_leave then this.el_orig_leave() end
-          GameTooltip:Hide()
-        end)
-      end
+      end -- else (class filter)
     end
   end
 
