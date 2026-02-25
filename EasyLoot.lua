@@ -488,6 +488,7 @@ local toggle_options = {
   { label = "Accept Summon",    setting = "auto_summon",     default = false,  tooltip = "Automatically accept summons." },
   { label = "Accept Resurrect", setting = "auto_resurrect",  default = false,  tooltip = "Automatically accept resurrections." },
   { label = "Buy Items", setting = "auto_buy",         default = true,  tooltip = "Automatically buy enabled items from the vendor purchase list (hold Ctrl to disable)." },
+  { label = "Sell Items", setting = "auto_sell_list",  default = true,  tooltip = "Automatically sell items on the sell list when opening a vendor (hold Ctrl to disable)." },
   { label = "Sell Greys", setting = "auto_sell_greys", default = true,  tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
   { label = "Auto-Repair",     setting = "auto_repair",     default = true,  tooltip = "Repair at any valid vendor (hold Ctrl to disable)." },
   { label = "Auto-Dismount",   setting = "auto_dismount",   default = true,  tooltip = "Automatically dismount when trying to use most actions on a mount." },
@@ -726,6 +727,7 @@ function EasyLoot:VARIABLES_LOADED()
   EasyLoot:RegisterEvent("CONFIRM_LOOT_ROLL")
   EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
   EasyLoot:RegisterEvent("MERCHANT_SHOW")
+  EasyLoot:RegisterEvent("MERCHANT_CLOSED")
   EasyLoot:RegisterEvent("GOSSIP_SHOW")
   EasyLoot:RegisterEvent("ITEM_TEXT_BEGIN")
   EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -861,6 +863,7 @@ function EasyLoot:Load()
   EasyLootDB.greedlist = EasyLootDB.greedlist or {}
   EasyLootDB.passlist = EasyLootDB.passlist or {}
   EasyLootDB.buylist = EasyLootDB.buylist or {}
+  EasyLootDB.selllist = EasyLootDB.selllist or {}
 
   EasyLootDB.settings = EasyLootDB.settings or default_settings
   -- ensure all raid settings exist (for newly added raids)
@@ -895,6 +898,17 @@ function EasyLoot:PARTY_INVITE_REQUEST(who)
   end
 end
 
+local function FormatMoney(copper)
+  local g = math.floor(copper / 10000)
+  local s = math.floor(math.mod(copper / 100, 100))
+  local c = math.floor(math.mod(copper, 100))
+  local parts = ""
+  if g > 0 then parts = parts .. format("|cffffd700%dg|r", g) end
+  if s > 0 then parts = parts .. format("|cffc7c7cf%ds|r", s) end
+  if c > 0 or parts == "" then parts = parts .. format("|cffeda55f%dc|r", c) end
+  return parts
+end
+
 function EasyLoot:MERCHANT_SHOW()
   if IsControlKeyDown() then return end
 
@@ -906,73 +920,109 @@ function EasyLoot:MERCHANT_SHOW()
         el_print("Not Enough Money to Repair.")
       else
         RepairAllItems()
-        local gcost,scost,ccost = rcost/100/100,math.mod(rcost/100,100),math.mod(rcost,100)
-        local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
-        local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
-        local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
-        el_print(format("Equipment repaired for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+        el_print("Equipment repaired for: " .. FormatMoney(rcost))
       end
     end
   end
 
-  -- auto sell greys (one per frame, SortBags-style throttling)
+  -- auto sell (greys + sell list, one per frame, SortBags-style throttling)
+  local sell_queue = {}
   if EasyLootDB.settings.auto_sell_greys then
-    local queue = {}
     for bag = 0, 4 do
       for slot = 1, GetContainerNumSlots(bag) do
         local link = GetContainerItemLink(bag, slot)
         if link and string.find(link, "ff9d9d9d") then
-          table.insert(queue, { bag = bag, slot = slot })
+          local _, count = GetContainerItemInfo(bag, slot)
+          table.insert(sell_queue, { bag = bag, slot = slot, name = "Grey Items", count = count or 1, is_grey = true })
         end
       end
     end
-    if queue[1] then
-      if not EasyLoot.vendorSellFrame then
-        EasyLoot.vendorSellFrame = CreateFrame("Frame")
-      end
-      local f = EasyLoot.vendorSellFrame
-      f.queue = queue
-      f.index = 1
-      f.gold_before = GetMoney()
-      f.timeout = GetTime() + 7
-      f.opTimeout = 0
-      f.waiting = false
-      f:SetScript("OnUpdate", function()
-        if GetTime() > this.timeout then
-          this:SetScript("OnUpdate", nil)
-          return
-        end
-        if this.waiting then
-          local item = this.queue[this.index - 1]
-          if GetContainerItemLink(item.bag, item.slot) then
-            if GetTime() > this.opTimeout then
-              this.waiting = false
+  end
+  if EasyLootDB.settings.auto_sell_list and EasyLootDB.selllist then
+    for bag = 0, 4 do
+      for slot = 1, GetContainerNumSlots(bag) do
+        local link = GetContainerItemLink(bag, slot)
+        if link then
+          local name = ItemLinkToName(link)
+          if name then
+            local lname = string.lower(name)
+            for _,entry in ipairs(EasyLootDB.selllist) do
+              if entry.enabled ~= false and string.find(lname, string.lower(entry.name), nil, false) then
+                local _, count = GetContainerItemInfo(bag, slot)
+                table.insert(sell_queue, { bag = bag, slot = slot, name = name, count = count or 1 })
+                break
+              end
             end
-            return
           end
-          this.waiting = false
         end
-        local item = this.queue[this.index]
-        if not item then
-          local earned = GetMoney() - this.gold_before
-          if earned > 0 then
-            local gcost = math.floor(earned / 100 / 100)
-            local scost = math.floor(math.mod(earned / 100, 100))
-            local ccost = math.floor(math.mod(earned, 100))
-            local COLOR_GOLD   = gcost > 0 and format("|cffffd700%dg|r",gcost) or ""
-            local COLOR_SILVER = scost > 0 and format("|cffc7c7cf%ds|r",scost) or ""
-            local COLOR_COPPER = ccost > 0 and format("|cffeda55f%dc|r",ccost) or ""
-            el_print(format("Sold grey items for: %s%s%s", COLOR_GOLD, COLOR_SILVER, COLOR_COPPER))
+      end
+    end
+  end
+  if sell_queue[1] then
+    if not EasyLoot.vendorSellFrame then
+      EasyLoot.vendorSellFrame = CreateFrame("Frame")
+    end
+    local f = EasyLoot.vendorSellFrame
+    f.queue = sell_queue
+    f.index = 1
+    f.timeout = GetTime() + 7
+    f.opTimeout = 0
+    f.waiting = false
+    f.closed = false
+    f.money_snap = GetMoney()
+    f.results = {}       -- { [name] = { count, earned } }
+    f.result_order = {}  -- preserves insertion order
+    f.PrintResults = function(self)
+      for _, key in ipairs(self.result_order) do
+        local r = self.results[key]
+        if r.earned > 0 then
+          local display = r.is_grey and key or (ITEM_COLOR .. key .. "|r")
+          el_print(format("Sold %dx %s for: %s", r.count, display, FormatMoney(r.earned)))
+        end
+      end
+      self:SetScript("OnUpdate", nil)
+      self.queue = nil
+      self.results = nil
+      self.result_order = nil
+    end
+
+    f:SetScript("OnUpdate", function()
+      if GetTime() > this.timeout then
+        this:PrintResults()
+        return
+      end
+      if this.waiting then
+        local prev = this.queue[this.index - 1]
+        if GetContainerItemLink(prev.bag, prev.slot) then
+          if GetTime() > this.opTimeout then
+            this.waiting = false
           end
-          this:SetScript("OnUpdate", nil)
           return
         end
-        UseContainerItem(item.bag, item.slot)
-        this.index = this.index + 1
-        this.waiting = true
-        this.opTimeout = GetTime() + 2
-      end)
-    end
+        -- item sold: attribute earnings
+        local now = GetMoney()
+        local earned = now - this.money_snap
+        this.money_snap = now
+        local key = prev.name
+        if not this.results[key] then
+          this.results[key] = { count = 0, earned = 0, is_grey = prev.is_grey }
+          table.insert(this.result_order, key)
+        end
+        this.results[key].count = this.results[key].count + prev.count
+        this.results[key].earned = this.results[key].earned + earned
+        this.waiting = false
+      end
+      local item = this.queue[this.index]
+      if not item or this.closed then
+        this:PrintResults()
+        return
+      end
+      this.money_snap = GetMoney()
+      UseContainerItem(item.bag, item.slot)
+      this.index = this.index + 1
+      this.waiting = true
+      this.opTimeout = GetTime() + 2
+    end)
   end
 
   -- auto buy items from purchase list
@@ -1006,6 +1056,12 @@ function EasyLoot:MERCHANT_SHOW()
         end
       end
     end
+  end
+end
+
+function EasyLoot:MERCHANT_CLOSED()
+  if EasyLoot.vendorSellFrame and EasyLoot.vendorSellFrame:GetScript("OnUpdate") then
+    EasyLoot.vendorSellFrame.closed = true
   end
 end
 
@@ -1511,14 +1567,20 @@ function EasyLoot:CreateConfig()
   end
 
   -- Dropdown creation function (as per your provided working code)
-  local function CreateListsDropdown(parent, label, items, width, x, y, name, tooltip)
-    local dropdown = CreateFrame("Button", name, parent, "UIDropDownMenuTemplate")
+  -- Unified dropdown for all item lists (whitelists, sell list, buy list)
+  -- opts: { items, label, name, tooltip, popup (dialog name), tooltip_extra, toggleable }
+  local function CreateItemListDropdown(parent, x, y, opts)
+    local items = opts.items
+    local label = opts.label
+    local frameName = opts.name
+    local tooltip = opts.tooltip
+    local popup = opts.popup or "ADD_ITEM_NAME"
+    local tooltip_extra = opts.tooltip_extra
+
+    local dropdown = CreateFrame("Button", frameName, parent, "UIDropDownMenuTemplate")
     dropdown.el_default_text = label
     dropdown:SetPoint("TOP", x - C.DROPDOWN_OFFSET, y)
 
-    -- local selectedValue = defaultValue
-
-    -- Manual initialization for the dropdown
     local function InitializeDropdown()
       local btnIdx = 0
 
@@ -1526,8 +1588,8 @@ function EasyLoot:CreateConfig()
       local info = {}
       info.text = "Add New item"
       info.func = function ()
-        local add = StaticPopup_Show("ADD_ITEM_NAME", label)
-        add.data = items
+        local add = StaticPopup_Show(popup, label)
+        add.data = { items = items, label = label, toggleable = opts.toggleable }
         local editbox = getglobal(add:GetName().."EditBox")
 
         local orig_ContainerFrameItemButton_OnClick = (function ()
@@ -1573,12 +1635,13 @@ function EasyLoot:CreateConfig()
           addBtn.el_orig_enter = addBtn:GetScript("OnEnter")
           addBtn.el_orig_leave = addBtn:GetScript("OnLeave")
         end
-        addBtn.el_dropdown_owner = name
+        addBtn.el_dropdown_owner = frameName
         addBtn:SetScript("OnEnter", function()
           if this.el_orig_enter then this.el_orig_enter() end
           if UIDROPDOWNMENU_OPEN_MENU ~= this.el_dropdown_owner then return end
           GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
           GameTooltip:SetText(label, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
+          if tooltip_extra then GameTooltip:AddLine(tooltip_extra, 1, 1, 1, true) end
           GameTooltip:AddLine(tooltip, 1, 1, 1, true)
           GameTooltip:AddLine("Right-click an item to remove it.", 0.5, 0.5, 0.5, true)
           GameTooltip:Show()
@@ -1589,8 +1652,41 @@ function EasyLoot:CreateConfig()
         end)
       end
 
-      -- item entries with right-click to remove
-      for i, item in ixpairs(items) do
+      -- item entries (toggleable = { name, enabled [, count] } objects; plain = flat strings)
+      if opts.toggleable then
+        for _,entry in ipairs(items) do
+          if entry.enabled == nil then entry.enabled = true end
+          local displayText = entry.count and (entry.count .. "x " .. entry.name) or entry.name
+          local thisEntry = entry
+          local info = {}
+          info.text = displayText
+          info.value = entry.name
+          info.keepShownOnClick = 1
+          info.checked = entry.enabled and 1 or nil
+          info.func = function ()
+            thisEntry.enabled = not thisEntry.enabled
+          end
+          UIDropDownMenu_AddButton(info)
+          btnIdx = btnIdx + 1
+
+          local btn = getglobal("DropDownList1Button"..btnIdx)
+          if btn then
+            btn.el_remove_entry = entry
+            btn.el_dropdown_owner = frameName
+            btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            btn:SetScript("OnClick", function()
+              if UIDROPDOWNMENU_OPEN_MENU == this.el_dropdown_owner and arg1 == "RightButton" then
+                CloseDropDownMenus()
+                local pop = StaticPopup_Show("REM_ITEM_NAME", this.el_remove_entry.name, label)
+                pop.data = { items = items, item = this.el_remove_entry.name, label = label, dropdown = dropdown }
+              else
+                UIDropDownMenuButton_OnClick()
+              end
+            end)
+          end
+        end
+      else
+        for i, item in ixpairs(items) do
           local info = {}
           info.text = item
           info.value = item
@@ -1600,45 +1696,51 @@ function EasyLoot:CreateConfig()
           local btn = getglobal("DropDownList1Button"..btnIdx)
           if btn then
             btn.el_remove_item = item
-            btn.el_dropdown_owner = name
+            btn.el_dropdown_owner = frameName
             btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             btn:SetScript("OnClick", function()
               if UIDROPDOWNMENU_OPEN_MENU == this.el_dropdown_owner and arg1 == "RightButton" then
                 CloseDropDownMenus()
                 local pop = StaticPopup_Show("REM_ITEM_NAME", this.el_remove_item, label)
-                pop.data = { items, this.el_remove_item, dropdown }
+                pop.data = { items = items, item = this.el_remove_item, label = label, dropdown = dropdown }
               else
                 UIDropDownMenuButton_OnClick()
               end
             end)
           end
+        end
       end
     end
 
-    -- Set up the dropdown, ensuring it is properly initialized with a named frame
     UIDropDownMenu_Initialize(dropdown, InitializeDropdown)
-    UIDropDownMenu_SetWidth(width,dropdown)
+    UIDropDownMenu_SetWidth(C.DROPDOWN_WIDTH, dropdown)
     UIDropDownMenu_SetText(dropdown.el_default_text, dropdown)
 
     return dropdown
   end
 
--- Function to add item to dropdown
-local function AddItemToDropdown(dropdown_list, item)
+-- Function to add item to dropdown (toggleable = { name, enabled } objects; plain = flat strings)
+local function AddItemToDropdown(dropdown_list, item, list_label, toggleable)
   item = TitleCase(item)
   for _,v in ipairs(dropdown_list) do
-    if string.lower(v) == string.lower(item) then return end
+    local existing = type(v) == "table" and v.name or v
+    if string.lower(existing) == string.lower(item) then return end
   end
-  table.insert(dropdown_list, item)
-  el_print("Added item: "..ITEM_COLOR..item.."|r to whitelist.")
+  if toggleable then
+    table.insert(dropdown_list, { name = item, enabled = true })
+  else
+    table.insert(dropdown_list, item)
+  end
+  el_print("Added "..ITEM_COLOR..item.."|r to "..list_label..".")
 end
 
--- Function to remove item from dropdown
-local function RemoveItemFromDropdown(dropdown_list, item)
-  for i,name in pairs(dropdown_list) do
-    if name == item then
-      table.remove(dropdown_list,i)
-      el_print("Removed item: "..ITEM_COLOR..item.."|r from whitelist.")
+local function RemoveItemFromDropdown(dropdown_list, item, list_label)
+  for i,v in ipairs(dropdown_list) do
+    local match = (v == item) or (type(v) == "table" and v.name == item)
+    if match then
+      local display = type(v) == "table" and v.name or v
+      table.remove(dropdown_list, i)
+      el_print("Removed "..ITEM_COLOR..display.."|r from "..list_label..".")
       break
     end
   end
@@ -1740,16 +1842,16 @@ StaticPopupDialogs["ADD_ITEM_NAME"] = {
   timeout = 0,
   whileDead = true,
   hideOnEscape = true,
-  OnAccept = function(dropdownIndex)
+  OnAccept = function(data)
     local itemName = getglobal(this:GetParent():GetName() .. "EditBox"):GetText()
     if itemName ~= "" then
-      AddItemToDropdown(dropdownIndex, itemName)
+      AddItemToDropdown(data.items, itemName, data.label, data.toggleable)
     end
   end,
-  EditBoxOnEnterPressed = function(dropdownIndex)
+  EditBoxOnEnterPressed = function(data)
     local itemName = this:GetText()
     if itemName ~= "" then
-      AddItemToDropdown(dropdownIndex, itemName)
+      AddItemToDropdown(data.items, itemName, data.label, data.toggleable)
       this:GetParent():Hide()
     end
   end,
@@ -1767,14 +1869,14 @@ StaticPopupDialogs["REM_ITEM_NAME"] = {
   whileDead = true,
   hideOnEscape = true,
   OnAccept = function(data)
-    RemoveItemFromDropdown(data[1], data[2])
-    data[3].selected = nil
-    UIDropDownMenu_SetText(data[3].el_default_text or "", data[3])
+    RemoveItemFromDropdown(data.items, data.item, data.label)
+    data.dropdown.selected = nil
+    UIDropDownMenu_SetText(data.dropdown.el_default_text or "", data.dropdown)
   end,
 }
 
 StaticPopupDialogs["ADD_BUY_ITEM"] = {
-  text = "Enter quantity and item name: 20 Sacred Candle\nShift-click an item to insert its name.",
+  text = "Enter quantity and item name:\n20 Sacred Candle\nShift-click an item to insert its name.",
   button1 = "Add",
   button2 = "Cancel",
   hasEditBox = true,
@@ -1796,160 +1898,30 @@ StaticPopupDialogs["ADD_BUY_ITEM"] = {
   enterClicksFirstButton = true,
 }
 
-StaticPopupDialogs["REM_BUY_ITEM"] = {
-  text = "Really remove %s from buy list?",
-  button1 = "Remove",
-  button2 = "Cancel",
-  timeout = 0,
-  whileDead = true,
-  hideOnEscape = true,
-  OnAccept = function(data)
-    local displayName = data[1]
-    for i,entry in ipairs(EasyLootDB.buylist) do
-      local entryDisplay = entry.count .. "x " .. entry.name
-      if entryDisplay == displayName then
-        table.remove(EasyLootDB.buylist, i)
-        el_print("Removed "..ITEM_COLOR .. entry.name .. "|r from buy list.")
-        break
-      end
-    end
-    data[2].selected = nil
-    UIDropDownMenu_SetText(data[2].el_default_text or "", data[2])
-  end,
-}
-
-  ----------------------------------------------------------------------
-  -- Buy List dropdown
-  local function CreateBuyListDropdown(parent, x, y)
-    local dropdown = CreateFrame("Button", "EasyLootBuyListDropdown", parent, "UIDropDownMenuTemplate")
-    dropdown.el_default_text = "Buy List"
-    dropdown:SetPoint("TOP", x - C.DROPDOWN_OFFSET, y)
-
-    local function InitializeDropdown()
-      local btnIdx = 0
-
-      -- "Add New item" entry
-      local info = {}
-      info.text = "Add New item"
-      info.func = function ()
-        local add = StaticPopup_Show("ADD_BUY_ITEM")
-        local editbox = getglobal(add:GetName().."EditBox")
-
-        local orig_ContainerFrameItemButton_OnClick = (function ()
-          local orig = ContainerFrameItemButton_OnClick
-          ContainerFrameItemButton_OnClick = function (button,ignoreModifiers,a3,a4,a5,a6,a7,a8,a9,a10)
-            if (button == "LeftButton" and IsShiftKeyDown() and not ignoreModifiers and editbox:IsShown()) then
-              editbox:Insert(ItemLinkToName(GetContainerItemLink(this:GetParent():GetID(), this:GetID())))
-            else
-              orig(button,ignoreModifiers,a3,a4,a5,a6,a7,a8,a9,a10)
-            end
-          end
-          return orig
-        end)()
-
-        local orig_ChatFrame_OnHyperlinkShow = (function ()
-          local orig = ChatFrame_OnHyperlinkShow
-          ChatFrame_OnHyperlinkShow = function (link,text,button,a3,a4,a5,a6,a7,a8,a9,a10)
-            if (button == "LeftButton" and IsShiftKeyDown() and not ignoreModifiers and editbox:IsShown()) then
-              editbox:Insert(ItemLinkToName(text))
-            else
-              orig(link,text,button,a3,a4,a5,a6,a7,a8,a9,a10)
-            end
-          end
-          return orig
-        end)()
-
-        add:SetScript("OnHide", function()
-          getglobal(this:GetName() .. "EditBox"):SetText("")
-          ContainerFrameItemButton_OnClick = orig_ContainerFrameItemButton_OnClick
-          ChatFrame_OnHyperlinkShow = orig_ChatFrame_OnHyperlinkShow
-        end)
-      end
-      info.textR = 0.1
-      info.textG = 0.8
-      info.textB = 0.1
-      UIDropDownMenu_AddButton(info)
-      btnIdx = btnIdx + 1
-
-      -- tooltip on "Add New item" button
-      local addBtn = getglobal("DropDownList1Button"..btnIdx)
-      if addBtn then
-        if not addBtn.el_orig_enter then
-          addBtn.el_orig_enter = addBtn:GetScript("OnEnter")
-          addBtn.el_orig_leave = addBtn:GetScript("OnLeave")
-        end
-        addBtn:SetScript("OnEnter", function()
-          if this.el_orig_enter then this.el_orig_enter() end
-          if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootBuyListDropdown" then return end
-          GameTooltip:SetOwner(this, "ANCHOR_BOTTOMRIGHT")
-          GameTooltip:SetText("Buy List", C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
-          GameTooltip:AddLine("Format: 20 Sacred Candle (or 20x Sacred Candle)", 1, 1, 1, true)
-          GameTooltip:AddLine("Right-click an item to remove it.", 0.5, 0.5, 0.5, true)
-          GameTooltip:Show()
-        end)
-        addBtn:SetScript("OnLeave", function()
-          if this.el_orig_leave then this.el_orig_leave() end
-          GameTooltip:Hide()
-        end)
-      end
-
-      -- item entries with right-click to remove
-      for _,entry in ipairs(EasyLootDB.buylist) do
-        if entry.enabled == nil then entry.enabled = true end
-        local displayText = entry.count .. "x " .. entry.name
-        local thisEntry = entry
-        local info = {}
-        info.text = displayText
-        info.value = entry.name
-        info.keepShownOnClick = 1
-        info.checked = entry.enabled and 1 or nil
-        info.func = function ()
-          thisEntry.enabled = not thisEntry.enabled
-        end
-        UIDropDownMenu_AddButton(info)
-        btnIdx = btnIdx + 1
-
-        local btn = getglobal("DropDownList1Button"..btnIdx)
-        if btn then
-          btn.el_remove_display = displayText
-          btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-          btn:SetScript("OnClick", function()
-            if UIDROPDOWNMENU_OPEN_MENU == "EasyLootBuyListDropdown" and arg1 == "RightButton" then
-              CloseDropDownMenus()
-              local pop = StaticPopup_Show("REM_BUY_ITEM", this.el_remove_display)
-              pop.data = { this.el_remove_display, dropdown }
-            else
-              UIDropDownMenuButton_OnClick()
-            end
-          end)
-        end
-      end
-    end
-
-    UIDropDownMenu_Initialize(dropdown, InitializeDropdown)
-    UIDropDownMenu_SetWidth(C.DROPDOWN_WIDTH, dropdown)
-    UIDropDownMenu_SetText(dropdown.el_default_text, dropdown)
-
-    return dropdown
-  end
-
 -- Right-column dropdown layout (all positions in one spot)
+local dd_idx = 0
 local right_col_dropdowns = {
-  { type = "options",   y = -45  },
-  { type = "buylist",   y = -80  },
-  { type = "whitelist", y = -215, label = "Need List",  list = "needlist",  tooltip = "A list of items that will always be Needed, even BoP items." },
-  { type = "whitelist", y = -245, label = "Greed List", list = "greedlist", tooltip = "A list of items that will always be Greeded, even BoP items." },
-  { type = "whitelist", y = -275, label = "Pass List",  list = "passlist",  tooltip = "A list of items that will always be Passed, and not auto-looted." },
+  { type = "options", y = -45  },
+  { type = "list",   y = -80,   label = "Buy List",   list = "buylist",   tooltip = "Auto-buy items from vendors.", popup = "ADD_BUY_ITEM", toggleable = true },
+  { type = "list",   y = -115,  label = "Sell List",   list = "selllist",  tooltip = "A list of items that will always be sold at vendors.", toggleable = true },
+  { type = "list",   y = -215,  label = "Need List",  list = "needlist",  tooltip = "A list of items that will always be Needed, even BoP items." },
+  { type = "list",   y = -245,  label = "Greed List", list = "greedlist", tooltip = "A list of items that will always be Greeded, even BoP items." },
+  { type = "list",   y = -275,  label = "Pass List",  list = "passlist",  tooltip = "A list of items that will always be Passed, and not auto-looted." },
 }
-local wl_idx = 0
 for _,dd in ipairs(right_col_dropdowns) do
   if dd.type == "options" then
     optionsDropdown:SetPoint("TOP", rightColX - C.DROPDOWN_OFFSET, dd.y)
-  elseif dd.type == "buylist" then
-    CreateBuyListDropdown(EasyLootConfigFrame, rightColX, dd.y)
-  elseif dd.type == "whitelist" then
-    wl_idx = wl_idx + 1
-    CreateListsDropdown(EasyLootConfigFrame, dd.label, EasyLootDB[dd.list], C.DROPDOWN_WIDTH, rightColX, dd.y, "Dropdown"..wl_idx.."Frame", dd.tooltip)
+  elseif dd.type == "list" then
+    dd_idx = dd_idx + 1
+    CreateItemListDropdown(EasyLootConfigFrame, rightColX, dd.y, {
+      items = EasyLootDB[dd.list],
+      label = dd.label,
+      name = "EasyLootDD"..dd_idx,
+      tooltip = dd.tooltip,
+      tooltip_extra = dd.tooltip_extra,
+      popup = dd.popup,
+      toggleable = dd.toggleable,
+    })
   end
 end
 

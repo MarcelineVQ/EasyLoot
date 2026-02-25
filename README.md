@@ -1,4 +1,4 @@
-# EasyLoot 1.7.2
+# EasyLoot 1.7.8
 Automatic loot rules for instances and groups. Have loot handle itself.
 ---
 `/easyloot` for in game options. `/easyloot reset` to reset frame position.
@@ -11,6 +11,8 @@ Best used with [SuperWow](https://github.com/balakethelock/SuperWoW/) enabled.
 
 ### Vendor Options
 * Auto-buy reagent list. Specify items and quantities to automatically restock at vendors.
+* * Individual items can be toggled on/off.
+* Auto-sell specific items list.
 * * Individual items can be toggled on/off.
 * Auto-sell grey items.
 * Auto-repair.
