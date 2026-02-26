@@ -1046,10 +1046,12 @@ function EasyLoot:MERCHANT_SHOW()
         local needed = entry.count - inBags
         if needed > 0 then
           for i = 1, GetMerchantNumItems() do
-            local mName = GetMerchantItemInfo(i)
+            local mName, _, _, stackSize = GetMerchantItemInfo(i)
             if mName and string.lower(mName) == string.lower(entry.name) then
-              BuyMerchantItem(i, needed)
-              el_print(format("Bought %dx "..ITEM_COLOR.."%s|r", needed, entry.name))
+              stackSize = stackSize or 1
+              local stacks = math.ceil(needed / stackSize)
+              BuyMerchantItem(i, stacks)
+              el_print(format("Bought %dx "..ITEM_COLOR.."%s|r", stacks * stackSize, entry.name))
               break
             end
           end
