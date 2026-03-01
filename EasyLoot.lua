@@ -498,6 +498,7 @@ local toggle_options = {
   { label = "Combat Plates",  setting = "combat_plates",   default = false, tooltip = "Only show enemy nameplates in combat, hide when leaving combat." },
   { label = "Shift to Loot",   setting = "shift_to_loot",   default = false, tooltip = "Invert Shift behavior: only autoloot when Shift is held." },
   { label = "Pass on Greys",   setting = "pass_greys",      default = false, tooltip = "Do not loot grey items." },
+  { label = "Untrack in Raid", setting = "raid_untrack",   default = false, tooltip = "Remove Find Herbs and Find Minerals tracking when entering a raid instance." },
   { label = "Holy Water Only", setting = "only_holy",       default = false, tooltip = "Only loot holy water from Stratholme Chests." },
   { label = "Need List", setting = "need_whitelist",    default = true,  tooltip = "Enable the Need whitelist for auto-rolling." },
   { label = "Greed List",setting = "greed_whitelist",   default = true,  tooltip = "Enable the Greed whitelist for auto-rolling." },
@@ -714,6 +715,10 @@ function EasyLoot:ZONE_CHANGED_NEW_AREA()
   if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
     HideNameplates()
   end
+
+  if EasyLootDB.settings.raid_untrack and IsInInstance() and GetNumRaidMembers() > 1 then
+    EasyLoot:RemoveGatherTracking()
+  end
 end
 
 function EasyLoot:VARIABLES_LOADED()
@@ -779,13 +784,16 @@ function EasyLoot:RESURRECT_REQUEST()
 end
 
 local elTooltip = CreateFrame("GameTooltip", "elTooltip", UIParent, "GameTooltipTemplate")
-function EasyLoot:Dismount()
-  -- do dismount
-  -- increases speed -- search for speed based on
+
+local mount_searches = {"Increases speed based", "Slow and steady", "Speed scales with your"}
+local gather_searches = {"Find Herbs", "Find Minerals"}
+local shapeshift_searches = {"Cat Form", "Bear Form", "Dire Bear Form", "Tree of Life Form", "Moonkin Form", "Aquatic Form", "Travel Form", "Swift Travel Form"}
+
+-- Cancel buffs whose name or description matches any pattern in the search table
+-- Returns list of cancelled buff names
+local function CancelBuffsBySearch(searches)
+  local removed = {}
   local counter = -1
-  local speed = "^Increases speed based"
-  local turtle1 = "^Slow and steady"
-  local turtle2 = "^Speed scales with your"
   while true do
     counter = counter + 1
     local index, untilCancelled = GetPlayerBuff(counter)
@@ -793,44 +801,32 @@ function EasyLoot:Dismount()
     if untilCancelled then
       elTooltip:SetOwner(UIParent, "ANCHOR_PRESERVE")
       elTooltip:SetPlayerBuff(index)
-
-      local desc = elTooltipTextLeft2:GetText()
-      if desc then
-        if string.find(desc, speed) or string.find(desc, turtle1) or string.find(desc, turtle2) then
+      local name = elTooltipTextLeft1:GetText() or ""
+      local desc = elTooltipTextLeft2:GetText() or ""
+      for _, pattern in ipairs(searches) do
+        if string.find(name, pattern) or string.find(desc, pattern) then
           CancelPlayerBuff(counter)
-          return
+          table.insert(removed, name)
+          break
         end
       end
     end
   end
+  return removed
 end
 
-local shapeshift_forms = {
-  ["Cat Form"] = true,
-  ["Bear Form"] = true,
-  ["Dire Bear Form"] = true,
-  ["Tree of Life Form"] = true,
-  ["Moonkin Form"] = true,
-  ["Aquatic Form"] = true,
-  ["Travel Form"] = true,
-  ["Swift Travel Form"] = true,
-}
+function EasyLoot:Dismount()
+  CancelBuffsBySearch(mount_searches)
+end
 
 function EasyLoot:CancelShapeshift()
-  local counter = -1
-  while true do
-    counter = counter + 1
-    local index, untilCancelled = GetPlayerBuff(counter)
-    if index == -1 then break end
-    if untilCancelled then
-      elTooltip:SetOwner(UIParent, "ANCHOR_PRESERVE")
-      elTooltip:SetPlayerBuff(index)
-      local name = elTooltipTextLeft1:GetText()
-      if name and shapeshift_forms[name] then
-        CancelPlayerBuff(counter)
-        return
-      end
-    end
+  CancelBuffsBySearch(shapeshift_searches)
+end
+
+function EasyLoot:RemoveGatherTracking()
+  local removed = CancelBuffsBySearch(gather_searches)
+  for _, name in ipairs(removed) do
+    el_print("Removed "..ITEM_COLOR..name.."|r")
   end
 end
 

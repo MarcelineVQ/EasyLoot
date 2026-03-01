@@ -24,6 +24,7 @@ Best used with [SuperWow](https://github.com/balakethelock/SuperWoW/) enabled.
 * Auto-dismount and auto-stand.
 * Auto-unshift for druids when their form disallows actions (outside of combat).
 * Combat plates: show enemy nameplates in combat, hide outside.
+* Raid untrack: automatically remove Find Herbs and Find Minerals tracking when entering a raid instance.
 * Automation of many common gossip actions.
 * Automatically turn in Bijou by clicking on Altar of Zanza.
 
