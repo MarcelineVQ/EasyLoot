@@ -496,6 +496,7 @@ local toggle_options = {
   { label = "Auto-Stand",      setting = "auto_stand",      default = true,  tooltip = "Automatically stand when trying to use actions while sitting." },
   { label = "Auto-Gossip",     setting = "auto_gossip",     default = true,  tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
   { label = "Combat Plates",  setting = "combat_plates",   default = false, tooltip = "Only show enemy nameplates in combat, hide when leaving combat." },
+  { label = "Combat Names",  setting = "combat_names",    default = true, tooltip = "Hide player and NPC names in combat, restore when leaving combat." },
   { label = "Shift to Loot",   setting = "shift_to_loot",   default = false, tooltip = "Invert Shift behavior: only autoloot when Shift is held." },
   { label = "Pass on Greys",   setting = "pass_greys",      default = false, tooltip = "Do not loot grey items." },
   { label = "Untrack in Raid", setting = "raid_untrack",   default = false, tooltip = "Remove Find Herbs and Find Minerals tracking when entering a raid instance." },
@@ -697,12 +698,33 @@ end
 -- Other Functions
 ------------------------------
 
+local combat_name_cvars = { "UnitNamePlayer", "UnitNameNPC", "UnitNameOwn" }
+local saved_name_cvars = {}
+
+local function HideNameCVars()
+  for _,cvar in ipairs(combat_name_cvars) do
+    saved_name_cvars[cvar] = GetCVar(cvar)
+    SetCVar(cvar, "0")
+  end
+end
+
+local function RestoreNameCVars()
+  for _,cvar in ipairs(combat_name_cvars) do
+    if saved_name_cvars[cvar] then
+      SetCVar(cvar, saved_name_cvars[cvar])
+    end
+  end
+  saved_name_cvars = {}
+end
+
 function EasyLoot:PLAYER_REGEN_ENABLED()
   if EasyLootDB.settings.combat_plates then HideNameplates() end
+  if EasyLootDB.settings.combat_names then RestoreNameCVars() end
 end
 
 function EasyLoot:PLAYER_REGEN_DISABLED()
   if EasyLootDB.settings.combat_plates then ShowNameplates() end
+  if EasyLootDB.settings.combat_names then HideNameCVars() end
 end
 
 function EasyLoot:PLAYER_ENTERING_WORLD()
@@ -789,9 +811,9 @@ local mount_searches = {"Increases speed based", "Slow and steady", "Speed scale
 local gather_searches = {"Find Herbs", "Find Minerals"}
 local shapeshift_searches = {"Cat Form", "Bear Form", "Dire Bear Form", "Tree of Life Form", "Moonkin Form", "Aquatic Form", "Travel Form", "Swift Travel Form"}
 
--- Cancel buffs whose name or description matches any pattern in the search table
+-- Cancel buffs matching search patterns. check_by: "name" or "desc"
 -- Returns list of cancelled buff names
-local function CancelBuffsBySearch(searches)
+local function CancelBuffsBySearch(searches, check_by)
   local removed = {}
   local counter = -1
   while true do
@@ -802,9 +824,9 @@ local function CancelBuffsBySearch(searches)
       elTooltip:SetOwner(UIParent, "ANCHOR_PRESERVE")
       elTooltip:SetPlayerBuff(index)
       local name = elTooltipTextLeft1:GetText() or ""
-      local desc = elTooltipTextLeft2:GetText() or ""
+      local text = check_by == "desc" and (elTooltipTextLeft2:GetText() or "") or name
       for _, pattern in ipairs(searches) do
-        if string.find(name, pattern) or string.find(desc, pattern) then
+        if string.find(text, pattern) then
           CancelPlayerBuff(counter)
           table.insert(removed, name)
           break
@@ -816,15 +838,15 @@ local function CancelBuffsBySearch(searches)
 end
 
 function EasyLoot:Dismount()
-  CancelBuffsBySearch(mount_searches)
+  CancelBuffsBySearch(mount_searches, "desc")
 end
 
 function EasyLoot:CancelShapeshift()
-  CancelBuffsBySearch(shapeshift_searches)
+  CancelBuffsBySearch(shapeshift_searches, "name")
 end
 
 function EasyLoot:RemoveGatherTracking()
-  local removed = CancelBuffsBySearch(gather_searches)
+  local removed = CancelBuffsBySearch(gather_searches, "name")
   for _, name in ipairs(removed) do
     el_print("Removed "..ITEM_COLOR..name.."|r")
   end
