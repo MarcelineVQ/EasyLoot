@@ -487,8 +487,6 @@ local toggle_options = {
   { label = "Accept Invite",     setting = "auto_invite",     default = true,  tooltip = "Always accept invites from friends or guild members." },
   { label = "Accept Summon",    setting = "auto_summon",     default = false,  tooltip = "Automatically accept summons." },
   { label = "Accept Resurrect", setting = "auto_resurrect",  default = false,  tooltip = "Automatically accept resurrections." },
-  { label = "Buy Items", setting = "auto_buy",         default = true,  tooltip = "Automatically buy enabled items from the vendor purchase list (hold Ctrl to disable)." },
-  { label = "Sell Items", setting = "auto_sell_list",  default = true,  tooltip = "Automatically sell items on the sell list when opening a vendor (hold Ctrl to disable)." },
   { label = "Sell Greys", setting = "auto_sell_greys", default = true,  tooltip = "Automatically sell grey items when opening a vendor (hold Ctrl to disable)." },
   { label = "Auto-Repair",     setting = "auto_repair",     default = true,  tooltip = "Repair at any valid vendor (hold Ctrl to disable)." },
   { label = "Auto-Dismount",   setting = "auto_dismount",   default = true,  tooltip = "Automatically dismount when trying to use most actions on a mount." },
@@ -501,14 +499,17 @@ local toggle_options = {
   { label = "Pass on Greys",   setting = "pass_greys",      default = false, tooltip = "Do not loot grey items." },
   { label = "Untrack in Raid", setting = "raid_untrack",   default = false, tooltip = "Remove Find Herbs and Find Minerals tracking when entering a raid instance." },
   { label = "Holy Water Only", setting = "only_holy",       default = false, tooltip = "Only loot holy water from Stratholme Chests." },
-  { label = "Need List", setting = "need_whitelist",    default = true,  tooltip = "Enable the Need whitelist for auto-rolling." },
-  { label = "Greed List",setting = "greed_whitelist",   default = true,  tooltip = "Enable the Greed whitelist for auto-rolling." },
-  { label = "Pass List", setting = "pass_whitelist",    default = true,  tooltip = "Enable the Pass whitelist for auto-rolling." },
 }
 
 local default_settings = {
   general_boe_rule = GREED,
+  auto_buy = true,
+  auto_sell_list = true,
+  need_whitelist = true,
+  greed_whitelist = true,
+  pass_whitelist = true,
 }
+
 for _,opt in ipairs(toggle_options) do
   default_settings[opt.setting] = opt.default
 end
@@ -1604,6 +1605,31 @@ function EasyLoot:CreateConfig()
     local function InitializeDropdown()
       local btnIdx = 0
 
+      -- Enabled / Disabled toggle header
+      if opts.setting then
+        local enabled = EasyLootDB.settings[opts.setting]
+        local info = {}
+        info.text = enabled and "Enabled" or "Disabled"
+        info.textR = enabled and 1 or 0.5
+        info.textG = enabled and 1 or 0.5
+        info.textB = enabled and 1 or 0.5
+        info.checked = enabled and 1 or nil
+        info.keepShownOnClick = 1
+        info.func = function ()
+          EasyLootDB.settings[opts.setting] = not EasyLootDB.settings[opts.setting]
+          local en = EasyLootDB.settings[opts.setting]
+          local btn = getglobal("DropDownList1Button1")
+          if btn then
+            local r, g, b = en and 1 or 0.5, en and 1 or 0.5, en and 1 or 0.5
+            btn:SetText(en and "Enabled" or "Disabled")
+            btn:SetTextColor(r, g, b)
+            btn:SetHighlightTextColor(r, g, b)
+          end
+        end
+        UIDropDownMenu_AddButton(info)
+        btnIdx = btnIdx + 1
+      end
+
       -- "Add New item" entry
       local info = {}
       info.text = "Add New item"
@@ -1922,11 +1948,11 @@ StaticPopupDialogs["ADD_BUY_ITEM"] = {
 local dd_idx = 0
 local right_col_dropdowns = {
   { type = "options", y = -45  },
-  { type = "list",   y = -80,   label = "Buy List",   list = "buylist",   tooltip = "Auto-buy items from vendors.", popup = "ADD_BUY_ITEM", toggleable = true },
-  { type = "list",   y = -115,  label = "Sell List",   list = "selllist",  tooltip = "A list of items that will always be sold at vendors.", toggleable = true },
-  { type = "list",   y = -215,  label = "Need List",  list = "needlist",  tooltip = "A list of items that will always be Needed, even BoP items." },
-  { type = "list",   y = -245,  label = "Greed List", list = "greedlist", tooltip = "A list of items that will always be Greeded, even BoP items." },
-  { type = "list",   y = -275,  label = "Pass List",  list = "passlist",  tooltip = "A list of items that will always be Passed, and not auto-looted." },
+  { type = "list",   y = -80,   label = "Buy List",   list = "buylist",   setting = "auto_buy",        tooltip = "Auto-buy items from vendors.", popup = "ADD_BUY_ITEM", toggleable = true },
+  { type = "list",   y = -115,  label = "Sell List",   list = "selllist",  setting = "auto_sell_list",  tooltip = "A list of items that will always be sold at vendors.", toggleable = true },
+  { type = "list",   y = -215,  label = "Need List",  list = "needlist",  setting = "need_whitelist",  tooltip = "A list of items that will always be Needed, even BoP items." },
+  { type = "list",   y = -245,  label = "Greed List", list = "greedlist", setting = "greed_whitelist", tooltip = "A list of items that will always be Greeded, even BoP items." },
+  { type = "list",   y = -275,  label = "Pass List",  list = "passlist",  setting = "pass_whitelist",  tooltip = "A list of items that will always be Passed, and not auto-looted." },
 }
 for _,dd in ipairs(right_col_dropdowns) do
   if dd.type == "options" then
@@ -1941,6 +1967,7 @@ for _,dd in ipairs(right_col_dropdowns) do
       tooltip_extra = dd.tooltip_extra,
       popup = dd.popup,
       toggleable = dd.toggleable,
+      setting = dd.setting,
     })
   end
 end
