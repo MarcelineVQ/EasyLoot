@@ -1010,6 +1010,10 @@ function EasyLoot:MERCHANT_SHOW()
         this:PrintResults()
         return
       end
+      if this.closed then
+        this:PrintResults()
+        return
+      end
       if this.waiting then
         local prev = this.queue[this.index - 1]
         if GetContainerItemLink(prev.bag, prev.slot) then
