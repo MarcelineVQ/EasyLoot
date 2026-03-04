@@ -494,7 +494,7 @@ local toggle_options = {
   { label = "Auto-Stand",      setting = "auto_stand",      default = true,  tooltip = "Automatically stand when trying to use actions while sitting." },
   { label = "Auto-Gossip",     setting = "auto_gossip",     default = true,  tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
   { label = "Combat Plates",  setting = "combat_plates",   default = false, tooltip = "Only show enemy nameplates in combat, hide when leaving combat." },
-  { label = "Combat Names",  setting = "combat_names",    default = true, tooltip = "Hide player and NPC names in combat, restore when leaving combat." },
+  { label = "Combat Names",  setting = "combat_names",    default = false, tooltip = "Hide player and NPC names in combat, restore when leaving combat." },
   { label = "Shift to Loot",   setting = "shift_to_loot",   default = false, tooltip = "Invert Shift behavior: only autoloot when Shift is held." },
   { label = "Pass on Greys",   setting = "pass_greys",      default = false, tooltip = "Do not loot grey items." },
   { label = "Untrack in Raid", setting = "raid_untrack",   default = false, tooltip = "Remove Find Herbs and Find Minerals tracking when entering a raid instance." },
@@ -700,27 +700,30 @@ end
 ------------------------------
 
 local combat_name_cvars = { "UnitNamePlayer", "UnitNameNPC", "UnitNameOwn" }
-local saved_name_cvars = {}
 
 local function HideNameCVars()
+  if EasyLootDB.names_hidden then return end
+  EasyLootDB.saved_name_cvars = {}
   for _,cvar in ipairs(combat_name_cvars) do
-    saved_name_cvars[cvar] = GetCVar(cvar)
+    EasyLootDB.saved_name_cvars[cvar] = GetCVar(cvar)
     SetCVar(cvar, "0")
   end
+  EasyLootDB.names_hidden = true
 end
 
 local function RestoreNameCVars()
+  if not EasyLootDB.names_hidden then return end
   for _,cvar in ipairs(combat_name_cvars) do
-    if saved_name_cvars[cvar] then
-      SetCVar(cvar, saved_name_cvars[cvar])
+    if EasyLootDB.saved_name_cvars and EasyLootDB.saved_name_cvars[cvar] then
+      SetCVar(cvar, EasyLootDB.saved_name_cvars[cvar])
     end
   end
-  saved_name_cvars = {}
+  EasyLootDB.names_hidden = false
 end
 
 function EasyLoot:PLAYER_REGEN_ENABLED()
   if EasyLootDB.settings.combat_plates then HideNameplates() end
-  if EasyLootDB.settings.combat_names then RestoreNameCVars() end
+  RestoreNameCVars()
 end
 
 function EasyLoot:PLAYER_REGEN_DISABLED()
@@ -731,6 +734,9 @@ end
 function EasyLoot:PLAYER_ENTERING_WORLD()
   if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
     HideNameplates()
+  end
+  if EasyLootDB.names_hidden and not UnitAffectingCombat("player") then
+    RestoreNameCVars()
   end
 end
 
@@ -1001,6 +1007,8 @@ function EasyLoot:MERCHANT_SHOW()
       end
       self:SetScript("OnUpdate", nil)
       self.queue = nil
+      self.waiting = false
+      self.closed = false
       self.results = nil
       self.result_order = nil
     end
@@ -1542,6 +1550,10 @@ function EasyLoot:CreateConfig()
           if setting_key == "combat_plates" then
             if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
               HideNameplates()
+            end
+          elseif setting_key == "combat_names" then
+            if not EasyLootDB.settings.combat_names then
+              RestoreNameCVars()
             end
           end
         end
