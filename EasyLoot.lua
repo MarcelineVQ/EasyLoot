@@ -864,7 +864,7 @@ function EasyLoot:UI_ERROR_MESSAGE(msg)
     EasyLoot:Dismount()
     UIErrorsFrame:Clear()
   end
-  if EasyLootDB.settings.auto_unshift and not UnitAffectingCombat("player") and string.find(arg1, "while shapeshifted") then
+  if EasyLootDB.settings.auto_unshift and not UnitAffectingCombat("player") and (string.find(arg1, "while shapeshifted") or string.find(arg1, "in shapeshift form")) then
     EasyLoot:CancelShapeshift()
     UIErrorsFrame:Clear()
   end
