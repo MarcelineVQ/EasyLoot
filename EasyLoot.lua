@@ -891,19 +891,9 @@ function EasyLoot:Load()
   EasyLootDB.selllist = EasyLootDB.selllist or {}
 
   EasyLootDB.settings = EasyLootDB.settings or default_settings
-  -- ensure all raid settings exist (for newly added raids)
-  for _,raid in ipairs(raid_config) do
-    for _,cat in ipairs(raid.categories) do
-      if cat.key and EasyLootDB.settings[cat.key] == nil then
-        EasyLootDB.settings[cat.key] = cat.default
-      end
-    end
-  end
-  EasyLootDB.settings.general_boe_rule = EasyLootDB.settings.general_boe_rule or default_settings.general_boe_rule
-  -- ensure all boolean toggle settings exist
-  for _,opt in ipairs(toggle_options) do
-    if EasyLootDB.settings[opt.setting] == nil then
-      EasyLootDB.settings[opt.setting] = opt.default
+  for k,v in pairs(default_settings) do
+    if EasyLootDB.settings[k] == nil then
+      EasyLootDB.settings[k] = v
     end
   end
 end
