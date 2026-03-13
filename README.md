@@ -1,4 +1,4 @@
-# EasyLoot 1.7.8
+# EasyLoot 1.7.11
 Automatic loot rules for instances and groups. Have loot handle itself.
 ---
 `/easyloot` for in game options. `/easyloot reset` to reset frame position.
@@ -23,11 +23,12 @@ Best used with [SuperWow](https://github.com/balakethelock/SuperWoW/) enabled.
 * Auto-accept resurrections.
 * Auto-dismount and auto-stand.
 * Auto-unshift for druids when their form disallows actions (outside of combat).
+* Auto-accept Call to Arms weekly quests.
+* Automation of many common gossip actions.
+* Automatically turn in Bijou by clicking on Altar of Zanza.
 * Combat plates: show enemy nameplates in combat, hide outside.
 * Combat names: hide player, NPC, and own names in combat, restore when leaving.
 * Raid untrack: automatically remove Find Herbs and Find Minerals tracking when entering a raid instance.
-* Automation of many common gossip actions.
-* Automatically turn in Bijou by clicking on Altar of Zanza.
 
 ### Looting Options
 * Autoloot behavior selection.

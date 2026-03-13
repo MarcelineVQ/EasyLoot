@@ -492,6 +492,7 @@ local toggle_options = {
   { label = "Auto-Dismount",   setting = "auto_dismount",   default = true,  tooltip = "Automatically dismount when trying to use most actions on a mount." },
   { label = "Auto-Unshift",   setting = "auto_unshift",    default = false, tooltip = "Cancel shapeshift form on shapeshifted error messages when out of combat.", class = "DRUID" },
   { label = "Auto-Stand",      setting = "auto_stand",      default = true,  tooltip = "Automatically stand when trying to use actions while sitting." },
+  { label = "Auto-Weeklies",  setting = "auto_weeklies",   default = true,  tooltip = "Automatically accept Call to Arms weekly quests (hold Ctrl to disable)." },
   { label = "Auto-Gossip",     setting = "auto_gossip",     default = true,  tooltip = "Automatically choose the most common gossip options (hold Ctrl to disable)." },
   { label = "Combat Plates",  setting = "combat_plates",   default = false, tooltip = "Only show enemy nameplates in combat, hide when leaving combat." },
   { label = "Combat Names",  setting = "combat_names",    default = false, tooltip = "Hide player and NPC names in combat, restore when leaving combat." },
@@ -763,6 +764,8 @@ function EasyLoot:VARIABLES_LOADED()
   EasyLoot:RegisterEvent("MERCHANT_SHOW")
   EasyLoot:RegisterEvent("MERCHANT_CLOSED")
   EasyLoot:RegisterEvent("GOSSIP_SHOW")
+  EasyLoot:RegisterEvent("QUEST_GREETING")
+  EasyLoot:RegisterEvent("QUEST_DETAIL")
   EasyLoot:RegisterEvent("ITEM_TEXT_BEGIN")
   EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
   EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -1110,7 +1113,27 @@ function EasyLoot:ITEM_TEXT_BEGIN()
   CloseItemText()
 end
 
+local weekly_quests = {
+  "Call to Arms: Dungeon Delving",
+  "Call to Arms: Molten Assault",
+  "Call to Arms: Cleansing the Corruption",
+}
+local accepting_weekly = false
+
 function EasyLoot:GOSSIP_SHOW()
+  -- auto-accept weekly quests from gossip frame
+  if EasyLootDB.settings.auto_weeklies and not IsControlKeyDown() then
+    local avail = { GetGossipAvailableQuests() }
+    for i = 1, tsize(avail), 2 do
+      local title = avail[i]
+      if title and elem(weekly_quests, title) then
+        accepting_weekly = true
+        SelectGossipAvailableQuest(math.floor(i / 2) + 1)
+        return
+      end
+    end
+  end
+
   if not EasyLootDB.settings.auto_gossip or IsControlKeyDown() then return end
   -- brainwasher is weird, skip it
   if UnitName("npc") == "Goblin Brainwashing Device" then
@@ -1142,6 +1165,24 @@ function EasyLoot:GOSSIP_SHOW()
         end
       end
     end
+  end
+end
+
+function EasyLoot:QUEST_GREETING()
+  if not EasyLootDB.settings.auto_weeklies or IsControlKeyDown() then return end
+  for i = 1, GetNumAvailableQuests() do
+    if elem(weekly_quests, GetAvailableTitle(i)) then
+      accepting_weekly = true
+      SelectAvailableQuest(i)
+      return
+    end
+  end
+end
+
+function EasyLoot:QUEST_DETAIL()
+  if accepting_weekly then
+    accepting_weekly = false
+    AcceptQuest()
   end
 end
 
