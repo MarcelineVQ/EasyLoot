@@ -11,7 +11,7 @@ local function debug_print(msg)
 end
 
 local function el_print(msg)
-  DEFAULT_CHAT_FRAME:AddMessage("|cffffff00EasyLoot:|r "..msg)
+  DEFAULT_CHAT_FRAME:AddMessage("|cffffff00LazyWeirdo:|r "..msg)
 end
 
 -- Addon ---------------------
@@ -83,7 +83,7 @@ end
 -- Vars
 ------------------------------
 
-local EasyLoot = CreateFrame("Frame","EasyLoot")
+local LazyWeirdo = CreateFrame("Frame","LazyWeirdo")
 
 local binds = {}
 local ITEM_COLOR = "|cff88bbdd"
@@ -522,13 +522,13 @@ end
 
 -- Determine what kind of roll we want for the item and do the pass, or roll of need or greed
 -- returns the roll type, if it was in an explicit list, and if it's a BoE item
-function EasyLoot:HandleItem(name,explicit_only)
+function LazyWeirdo:HandleItem(name,explicit_only)
   -- check specific lists first
-  if EasyLootDB.settings.need_whitelist and fuzzy_elem(EasyLootDB.needlist,name) then
+  if LazyWeirdoDB.settings.need_whitelist and fuzzy_elem(LazyWeirdoDB.needlist,name) then
     return NEED,true,false
-  elseif EasyLootDB.settings.greed_whitelist and fuzzy_elem(EasyLootDB.greedlist,name) then
+  elseif LazyWeirdoDB.settings.greed_whitelist and fuzzy_elem(LazyWeirdoDB.greedlist,name) then
     return GREED,true,false
-  elseif EasyLootDB.settings.pass_whitelist and fuzzy_elem(EasyLootDB.passlist,name) then
+  elseif LazyWeirdoDB.settings.pass_whitelist and fuzzy_elem(LazyWeirdoDB.passlist,name) then
     return PASS,true,false
   end
 
@@ -541,30 +541,30 @@ function EasyLoot:HandleItem(name,explicit_only)
         if cat.is_boe then
           boe_cat = cat
         elseif cat.items and elem(cat.items, name) then
-          return EasyLootDB.settings[cat.key],false,false
+          return LazyWeirdoDB.settings[cat.key],false,false
         end
       end
       -- BoP items that didn't match any explicit item list: don't auto-roll
       if explicit_only then return OFF,false,false end
       -- BoE fallback for the zone
       if boe_cat then
-        return EasyLootDB.settings[boe_cat.key],false,true
+        return LazyWeirdoDB.settings[boe_cat.key],false,true
       end
-      return EasyLootDB.settings.general_boe_rule,false,true
+      return LazyWeirdoDB.settings.general_boe_rule,false,true
     end
   end
   if explicit_only then return OFF,false,false end
-  return EasyLootDB.settings.general_boe_rule,false,true
+  return LazyWeirdoDB.settings.general_boe_rule,false,true
 end
 
 -- 0 pass, 1 need, 2 greed
-function EasyLoot:START_LOOT_ROLL(roll_id,time_left)
+function LazyWeirdo:START_LOOT_ROLL(roll_id,time_left)
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
-  local r = EasyLoot:HandleItem(name,bop)
+  local r = LazyWeirdo:HandleItem(name,bop)
   if r >= 0 then RollOnLoot(roll_id,r) end
 end
 
-function EasyLoot:LOOT_BIND_CONFIRM(slot)
+function LazyWeirdo:LOOT_BIND_CONFIRM(slot)
   -- solo play, queue the loot for accepting
   if not InGroup() then
     debug_print("solo bind")
@@ -575,7 +575,7 @@ function EasyLoot:LOOT_BIND_CONFIRM(slot)
   -- check whitelists if in group, say if everyone passed already
   -- could happen if you shift-click the boss and don't autoloot
   local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
-  local r = EasyLoot:HandleItem(item,true) -- we're in a group, use explicit still
+  local r = LazyWeirdo:HandleItem(item,true) -- we're in a group, use explicit still
   if r > 0 then
     debug_print("party bind")
     table.insert(binds,slot)
@@ -583,13 +583,13 @@ function EasyLoot:LOOT_BIND_CONFIRM(slot)
   end
 end
 
-function EasyLoot:LOOT_SLOT_CLEARED(slot)
+function LazyWeirdo:LOOT_SLOT_CLEARED(slot)
 end
 
 -- a BoP item ask, these can be autorolled but only by explicit whitelist
-function EasyLoot:CONFIRM_LOOT_ROLL(roll_id,roll_type)
+function LazyWeirdo:CONFIRM_LOOT_ROLL(roll_id,roll_type)
   local _texture, name, _count, quality, bop = GetLootRollItemInfo(roll_id)
-  local r = EasyLoot:HandleItem(name,bop)
+  local r = LazyWeirdo:HandleItem(name,bop)
 
   if r == OFF then return end
   if r == roll_type then
@@ -608,16 +608,16 @@ if pfUI and pfUI.loot then
   pfUI.loot.UpdateLootFrame = function () end
 end
 
-function EasyLoot:LOOT_OPENED()
+function LazyWeirdo:LOOT_OPENED()
   local shift = IsShiftKeyDown()
-  if (not EasyLootDB.settings.shift_to_loot and shift) or (EasyLootDB.settings.shift_to_loot and not shift) then
+  if (not LazyWeirdoDB.settings.shift_to_loot and shift) or (LazyWeirdoDB.settings.shift_to_loot and not shift) then
     orig_pfUI_UpdateLootFrame()
     return
   end
   local numLootItems = GetNumLootItems()
 
   -- strat chest check
-  if EasyLootDB.settings.only_holy and GetRealZoneText() == "Stratholme" then
+  if LazyWeirdoDB.settings.only_holy and GetRealZoneText() == "Stratholme" then
     local water = string.lower("Stratholme Holy Water")
     for slot = 1, numLootItems do
       local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
@@ -636,14 +636,14 @@ function EasyLoot:LOOT_OPENED()
     elseif LootSlotIsItem(slot) then
       local loot_method = GetLootMethod()
       local _texture, item, _quantity, quality = GetLootSlotInfo(slot)
-      local r,in_explicit_list,is_boe = EasyLoot:HandleItem(item)
+      local r,in_explicit_list,is_boe = LazyWeirdo:HandleItem(item)
       local is_container = not (UnitExists("target") and UnitIsDead("target")) -- best we can do
 
       -- determine loot to skip
       if in_explicit_list and (r == PASS) then
         -- loot is on our pass list
         debug_print("passlist "..item)
-      elseif (quality == 0 and EasyLootDB.settings.pass_greys) and not (r > 0 and in_explicit_list) then
+      elseif (quality == 0 and LazyWeirdoDB.settings.pass_greys) and not (r > 0 and in_explicit_list) then
         -- do nothing, unless it's a whitelist item
         debug_print("passgrey " .. item)
       elseif (r == OFF or r == PASS) and InGroup() and not is_boe then
@@ -692,7 +692,7 @@ function EasyLoot:LOOT_OPENED()
   orig_pfUI_UpdateLootFrame()
 end
 
-function EasyLoot:LOOT_CLOSED()
+function LazyWeirdo:LOOT_CLOSED()
   -- binds = {}
 end
 
@@ -703,77 +703,77 @@ end
 local combat_name_cvars = { "UnitNamePlayer", "UnitNameNPC", "UnitNameOwn" }
 
 local function HideNameCVars()
-  if EasyLootDB.names_hidden then return end
-  EasyLootDB.saved_name_cvars = {}
+  if LazyWeirdoDB.names_hidden then return end
+  LazyWeirdoDB.saved_name_cvars = {}
   for _,cvar in ipairs(combat_name_cvars) do
-    EasyLootDB.saved_name_cvars[cvar] = GetCVar(cvar)
+    LazyWeirdoDB.saved_name_cvars[cvar] = GetCVar(cvar)
     SetCVar(cvar, "0")
   end
-  EasyLootDB.names_hidden = true
+  LazyWeirdoDB.names_hidden = true
 end
 
 local function RestoreNameCVars()
-  if not EasyLootDB.names_hidden then return end
+  if not LazyWeirdoDB.names_hidden then return end
   for _,cvar in ipairs(combat_name_cvars) do
-    if EasyLootDB.saved_name_cvars and EasyLootDB.saved_name_cvars[cvar] then
-      SetCVar(cvar, EasyLootDB.saved_name_cvars[cvar])
+    if LazyWeirdoDB.saved_name_cvars and LazyWeirdoDB.saved_name_cvars[cvar] then
+      SetCVar(cvar, LazyWeirdoDB.saved_name_cvars[cvar])
     end
   end
-  EasyLootDB.names_hidden = false
+  LazyWeirdoDB.names_hidden = false
 end
 
-function EasyLoot:PLAYER_REGEN_ENABLED()
-  if EasyLootDB.settings.combat_plates then HideNameplates() end
+function LazyWeirdo:PLAYER_REGEN_ENABLED()
+  if LazyWeirdoDB.settings.combat_plates then HideNameplates() end
   RestoreNameCVars()
 end
 
-function EasyLoot:PLAYER_REGEN_DISABLED()
-  if EasyLootDB.settings.combat_plates then ShowNameplates() end
-  if EasyLootDB.settings.combat_names then HideNameCVars() end
+function LazyWeirdo:PLAYER_REGEN_DISABLED()
+  if LazyWeirdoDB.settings.combat_plates then ShowNameplates() end
+  if LazyWeirdoDB.settings.combat_names then HideNameCVars() end
 end
 
-function EasyLoot:PLAYER_ENTERING_WORLD()
-  if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
+function LazyWeirdo:PLAYER_ENTERING_WORLD()
+  if LazyWeirdoDB.settings.combat_plates and not UnitAffectingCombat("player") then
     HideNameplates()
   end
-  if EasyLootDB.names_hidden and not UnitAffectingCombat("player") then
+  if LazyWeirdoDB.names_hidden and not UnitAffectingCombat("player") then
     RestoreNameCVars()
   end
 end
 
-function EasyLoot:ZONE_CHANGED_NEW_AREA()
-  if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
+function LazyWeirdo:ZONE_CHANGED_NEW_AREA()
+  if LazyWeirdoDB.settings.combat_plates and not UnitAffectingCombat("player") then
     HideNameplates()
   end
 
-  if EasyLootDB.settings.raid_untrack and IsInInstance() and GetNumRaidMembers() > 1 then
-    EasyLoot:RemoveGatherTracking()
+  if LazyWeirdoDB.settings.raid_untrack and IsInInstance() and GetNumRaidMembers() > 1 then
+    LazyWeirdo:RemoveGatherTracking()
   end
 end
 
-function EasyLoot:VARIABLES_LOADED()
-  EasyLoot:Load()
+function LazyWeirdo:VARIABLES_LOADED()
+  LazyWeirdo:Load()
 
-  EasyLoot:RegisterEvent("START_LOOT_ROLL")
-  EasyLoot:RegisterEvent("LOOT_OPENED")
-  EasyLoot:RegisterEvent("LOOT_CLOSED")
-  EasyLoot:RegisterEvent("LOOT_BIND_CONFIRM")
-  EasyLoot:RegisterEvent("LOOT_SLOT_CLEARED")
-  EasyLoot:RegisterEvent("CONFIRM_LOOT_ROLL")
-  EasyLoot:RegisterEvent("PARTY_INVITE_REQUEST")
-  EasyLoot:RegisterEvent("MERCHANT_SHOW")
-  EasyLoot:RegisterEvent("MERCHANT_CLOSED")
-  EasyLoot:RegisterEvent("GOSSIP_SHOW")
-  EasyLoot:RegisterEvent("QUEST_GREETING")
-  EasyLoot:RegisterEvent("QUEST_DETAIL")
-  EasyLoot:RegisterEvent("ITEM_TEXT_BEGIN")
-  EasyLoot:RegisterEvent("PLAYER_REGEN_ENABLED")
-  EasyLoot:RegisterEvent("PLAYER_REGEN_DISABLED")
-  EasyLoot:RegisterEvent("UI_ERROR_MESSAGE")
-  EasyLoot:RegisterEvent("CONFIRM_SUMMON")
-  EasyLoot:RegisterEvent("RESURRECT_REQUEST")
-  EasyLoot:RegisterEvent("PLAYER_ENTERING_WORLD")
-  EasyLoot:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+  LazyWeirdo:RegisterEvent("START_LOOT_ROLL")
+  LazyWeirdo:RegisterEvent("LOOT_OPENED")
+  LazyWeirdo:RegisterEvent("LOOT_CLOSED")
+  LazyWeirdo:RegisterEvent("LOOT_BIND_CONFIRM")
+  LazyWeirdo:RegisterEvent("LOOT_SLOT_CLEARED")
+  LazyWeirdo:RegisterEvent("CONFIRM_LOOT_ROLL")
+  LazyWeirdo:RegisterEvent("PARTY_INVITE_REQUEST")
+  LazyWeirdo:RegisterEvent("MERCHANT_SHOW")
+  LazyWeirdo:RegisterEvent("MERCHANT_CLOSED")
+  LazyWeirdo:RegisterEvent("GOSSIP_SHOW")
+  LazyWeirdo:RegisterEvent("QUEST_GREETING")
+  LazyWeirdo:RegisterEvent("QUEST_DETAIL")
+  LazyWeirdo:RegisterEvent("ITEM_TEXT_BEGIN")
+  LazyWeirdo:RegisterEvent("PLAYER_REGEN_ENABLED")
+  LazyWeirdo:RegisterEvent("PLAYER_REGEN_DISABLED")
+  LazyWeirdo:RegisterEvent("UI_ERROR_MESSAGE")
+  LazyWeirdo:RegisterEvent("CONFIRM_SUMMON")
+  LazyWeirdo:RegisterEvent("RESURRECT_REQUEST")
+  LazyWeirdo:RegisterEvent("PLAYER_ENTERING_WORLD")
+  LazyWeirdo:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 
   -- hook away superapi's autoloot functionality and set autloot to off since this handles it
   if IfShiftAutoloot then
@@ -788,28 +788,28 @@ function EasyLoot:VARIABLES_LOADED()
     SetAutoloot(0)
   end
 
-  EasyLoot:CreateConfig()
+  LazyWeirdo:CreateConfig()
 
   -- Restore saved frame position (must be after CreateConfig)
-  if EasyLootDB.position then
-    EasyLootConfigFrame:ClearAllPoints()
-    EasyLootConfigFrame:SetPoint(
-      EasyLootDB.position.point, UIParent,
-      EasyLootDB.position.relPoint,
-      EasyLootDB.position.x, EasyLootDB.position.y
+  if LazyWeirdoDB.position then
+    LazyWeirdoConfigFrame:ClearAllPoints()
+    LazyWeirdoConfigFrame:SetPoint(
+      LazyWeirdoDB.position.point, UIParent,
+      LazyWeirdoDB.position.relPoint,
+      LazyWeirdoDB.position.x, LazyWeirdoDB.position.y
     )
   end
 end
 
-function EasyLoot:CONFIRM_SUMMON()
-  if EasyLootDB.settings.auto_summon then
+function LazyWeirdo:CONFIRM_SUMMON()
+  if LazyWeirdoDB.settings.auto_summon then
     ConfirmSummon()
     StaticPopup_Hide("CONFIRM_SUMMON")
   end
 end
 
-function EasyLoot:RESURRECT_REQUEST()
-  if EasyLootDB.settings.auto_resurrect then
+function LazyWeirdo:RESURRECT_REQUEST()
+  if LazyWeirdoDB.settings.auto_resurrect then
     AcceptResurrect()
     StaticPopup_Hide("RESURRECT_NO_SICKNESS")
   end
@@ -847,31 +847,31 @@ local function CancelBuffsBySearch(searches, check_by)
   return removed
 end
 
-function EasyLoot:Dismount()
+function LazyWeirdo:Dismount()
   CancelBuffsBySearch(mount_searches, "desc")
 end
 
-function EasyLoot:CancelShapeshift()
+function LazyWeirdo:CancelShapeshift()
   CancelBuffsBySearch(shapeshift_searches, "name")
 end
 
-function EasyLoot:RemoveGatherTracking()
+function LazyWeirdo:RemoveGatherTracking()
   local removed = CancelBuffsBySearch(gather_searches, "name")
   for _, name in ipairs(removed) do
     el_print("Removed "..ITEM_COLOR..name.."|r")
   end
 end
 
-function EasyLoot:UI_ERROR_MESSAGE(msg)
-  if EasyLootDB.settings.auto_dismount and string.find(arg1, "mounted") then
-    EasyLoot:Dismount()
+function LazyWeirdo:UI_ERROR_MESSAGE(msg)
+  if LazyWeirdoDB.settings.auto_dismount and string.find(arg1, "mounted") then
+    LazyWeirdo:Dismount()
     UIErrorsFrame:Clear()
   end
-  if EasyLootDB.settings.auto_unshift and not UnitAffectingCombat("player") and (string.find(arg1, "while shapeshifted") or string.find(arg1, "in shapeshift form")) then
-    EasyLoot:CancelShapeshift()
+  if LazyWeirdoDB.settings.auto_unshift and not UnitAffectingCombat("player") and (string.find(arg1, "while shapeshifted") or string.find(arg1, "in shapeshift form")) then
+    LazyWeirdo:CancelShapeshift()
     UIErrorsFrame:Clear()
   end
-  if EasyLootDB.settings.auto_stand and string.find(arg1, "must be standing") then
+  if LazyWeirdoDB.settings.auto_stand and string.find(arg1, "must be standing") then
     SitOrStand()
     UIErrorsFrame:Clear()
   end
@@ -880,39 +880,39 @@ end
 ------------------------------
 
 -- Register events
-EasyLoot:RegisterEvent("VARIABLES_LOADED")
-EasyLoot:SetScript("OnEvent", function ()
-  EasyLoot[event](this,arg1,arg2,arg3,arg4,arg6,arg7,arg8,arg9,arg9,arg10)
+LazyWeirdo:RegisterEvent("VARIABLES_LOADED")
+LazyWeirdo:SetScript("OnEvent", function ()
+  LazyWeirdo[event](this,arg1,arg2,arg3,arg4,arg6,arg7,arg8,arg9,arg9,arg10)
 end)
 
-function EasyLoot:Load()
-  EasyLootDB = EasyLootDB or {}
-  EasyLootDB.needlist = EasyLootDB.needlist or {}
-  EasyLootDB.greedlist = EasyLootDB.greedlist or {}
-  EasyLootDB.passlist = EasyLootDB.passlist or {}
-  EasyLootDB.buylist = EasyLootDB.buylist or {}
-  EasyLootDB.selllist = EasyLootDB.selllist or {}
+function LazyWeirdo:Load()
+  LazyWeirdoDB = LazyWeirdoDB or {}
+  LazyWeirdoDB.needlist = LazyWeirdoDB.needlist or {}
+  LazyWeirdoDB.greedlist = LazyWeirdoDB.greedlist or {}
+  LazyWeirdoDB.passlist = LazyWeirdoDB.passlist or {}
+  LazyWeirdoDB.buylist = LazyWeirdoDB.buylist or {}
+  LazyWeirdoDB.selllist = LazyWeirdoDB.selllist or {}
 
-  EasyLootDB.settings = EasyLootDB.settings or default_settings
+  LazyWeirdoDB.settings = LazyWeirdoDB.settings or default_settings
   for k,v in pairs(default_settings) do
-    if EasyLootDB.settings[k] == nil then
-      EasyLootDB.settings[k] = v
+    if LazyWeirdoDB.settings[k] == nil then
+      LazyWeirdoDB.settings[k] = v
     end
   end
 end
 
 
 -- lazypigs
-function EasyLoot:AcceptGroupInvite()
+function LazyWeirdo:AcceptGroupInvite()
 	AcceptGroup()
 	StaticPopup_Hide("PARTY_INVITE")
 	PlaySoundFile("Sound\\Doodad\\BellTollNightElf.wav")
 	UIErrorsFrame:AddMessage("Group Auto Accept")
 end
 
-function EasyLoot:PARTY_INVITE_REQUEST(who)
-  if EasyLootDB.settings.auto_invite and (IsGuildMate(who) or IsFriend(who)) then
-    EasyLoot:AcceptGroupInvite()
+function LazyWeirdo:PARTY_INVITE_REQUEST(who)
+  if LazyWeirdoDB.settings.auto_invite and (IsGuildMate(who) or IsFriend(who)) then
+    LazyWeirdo:AcceptGroupInvite()
   end
 end
 
@@ -927,11 +927,11 @@ local function FormatMoney(copper)
   return parts
 end
 
-function EasyLoot:MERCHANT_SHOW()
+function LazyWeirdo:MERCHANT_SHOW()
   if IsControlKeyDown() then return end
 
   -- auto repair
-  if EasyLootDB.settings.auto_repair and CanMerchantRepair() then
+  if LazyWeirdoDB.settings.auto_repair and CanMerchantRepair() then
     local rcost = GetRepairAllCost()
     if rcost and rcost ~= 0 then
       if rcost > GetMoney() then
@@ -945,7 +945,7 @@ function EasyLoot:MERCHANT_SHOW()
 
   -- auto sell (greys + sell list, one per frame, SortBags-style throttling)
   local sell_queue = {}
-  if EasyLootDB.settings.auto_sell_greys then
+  if LazyWeirdoDB.settings.auto_sell_greys then
     for bag = 0, 4 do
       for slot = 1, GetContainerNumSlots(bag) do
         local link = GetContainerItemLink(bag, slot)
@@ -956,7 +956,7 @@ function EasyLoot:MERCHANT_SHOW()
       end
     end
   end
-  if EasyLootDB.settings.auto_sell_list and EasyLootDB.selllist then
+  if LazyWeirdoDB.settings.auto_sell_list and LazyWeirdoDB.selllist then
     for bag = 0, 4 do
       for slot = 1, GetContainerNumSlots(bag) do
         local link = GetContainerItemLink(bag, slot)
@@ -964,7 +964,7 @@ function EasyLoot:MERCHANT_SHOW()
           local name = ItemLinkToName(link)
           if name then
             local lname = string.lower(name)
-            for _,entry in ipairs(EasyLootDB.selllist) do
+            for _,entry in ipairs(LazyWeirdoDB.selllist) do
               if entry.enabled ~= false and string.find(lname, string.lower(entry.name), nil, false) then
                 local _, count = GetContainerItemInfo(bag, slot)
                 table.insert(sell_queue, { bag = bag, slot = slot, name = name, count = count or 1 })
@@ -977,10 +977,10 @@ function EasyLoot:MERCHANT_SHOW()
     end
   end
   if sell_queue[1] then
-    if not EasyLoot.vendorSellFrame then
-      EasyLoot.vendorSellFrame = CreateFrame("Frame")
+    if not LazyWeirdo.vendorSellFrame then
+      LazyWeirdo.vendorSellFrame = CreateFrame("Frame")
     end
-    local f = EasyLoot.vendorSellFrame
+    local f = LazyWeirdo.vendorSellFrame
     f.queue = sell_queue
     f.index = 1
     f.timeout = GetTime() + 7
@@ -1050,8 +1050,8 @@ function EasyLoot:MERCHANT_SHOW()
   end
 
   -- auto buy items from purchase list
-  if EasyLootDB.settings.auto_buy and EasyLootDB.buylist then
-    for _,entry in ipairs(EasyLootDB.buylist) do
+  if LazyWeirdoDB.settings.auto_buy and LazyWeirdoDB.buylist then
+    for _,entry in ipairs(LazyWeirdoDB.buylist) do
       if entry.enabled ~= false then
         -- count how many of this item are already in bags
         local inBags = 0
@@ -1085,13 +1085,13 @@ function EasyLoot:MERCHANT_SHOW()
   end
 end
 
-function EasyLoot:MERCHANT_CLOSED()
-  if EasyLoot.vendorSellFrame and EasyLoot.vendorSellFrame:GetScript("OnUpdate") then
-    EasyLoot.vendorSellFrame.closed = true
+function LazyWeirdo:MERCHANT_CLOSED()
+  if LazyWeirdo.vendorSellFrame and LazyWeirdo.vendorSellFrame:GetScript("OnUpdate") then
+    LazyWeirdo.vendorSellFrame.closed = true
   end
 end
 
-function EasyLoot:ITEM_TEXT_BEGIN()
+function LazyWeirdo:ITEM_TEXT_BEGIN()
   if IsControlKeyDown() then return end
   if ItemTextGetItem() ~= "Altar of Zanza" then return end
 
@@ -1120,9 +1120,9 @@ local weekly_quests = {
 }
 local accepting_weekly = false
 
-function EasyLoot:GOSSIP_SHOW()
+function LazyWeirdo:GOSSIP_SHOW()
   -- auto-accept weekly quests from gossip frame
-  if EasyLootDB.settings.auto_weeklies and not IsControlKeyDown() then
+  if LazyWeirdoDB.settings.auto_weeklies and not IsControlKeyDown() then
     local avail = { GetGossipAvailableQuests() }
     for i = 1, tsize(avail), 2 do
       local title = avail[i]
@@ -1134,7 +1134,7 @@ function EasyLoot:GOSSIP_SHOW()
     end
   end
 
-  if not EasyLootDB.settings.auto_gossip or IsControlKeyDown() then return end
+  if not LazyWeirdoDB.settings.auto_gossip or IsControlKeyDown() then return end
   -- brainwasher is weird, skip it
   if UnitName("npc") == "Goblin Brainwashing Device" then
     return
@@ -1168,8 +1168,8 @@ function EasyLoot:GOSSIP_SHOW()
   end
 end
 
-function EasyLoot:QUEST_GREETING()
-  if not EasyLootDB.settings.auto_weeklies or IsControlKeyDown() then return end
+function LazyWeirdo:QUEST_GREETING()
+  if not LazyWeirdoDB.settings.auto_weeklies or IsControlKeyDown() then return end
   for i = 1, GetNumAvailableQuests() do
     if elem(weekly_quests, GetAvailableTitle(i)) then
       accepting_weekly = true
@@ -1179,66 +1179,67 @@ function EasyLoot:QUEST_GREETING()
   end
 end
 
-function EasyLoot:QUEST_DETAIL()
+function LazyWeirdo:QUEST_DETAIL()
   if accepting_weekly then
     accepting_weekly = false
     AcceptQuest()
   end
 end
 
-function EasyLoot:CreateConfig()
+function LazyWeirdo:CreateConfig()
 
   -- Create main frame for the configuration menu
-  local EasyLootConfigFrame = CreateFrame("Frame", "EasyLootConfigFrame", UIParent)
-  EasyLootConfigFrame:SetWidth(C.FRAME_W)
-  EasyLootConfigFrame:SetHeight(C.FRAME_H)
-  EasyLootConfigFrame:SetPoint("CENTER", UIParent, "CENTER")  -- Centered frame
-  EasyLootConfigFrame:SetBackdrop({
+  local LazyWeirdoConfigFrame = CreateFrame("Frame", "LazyWeirdoConfigFrame", UIParent)
+  LazyWeirdoConfigFrame:SetWidth(C.FRAME_W)
+  LazyWeirdoConfigFrame:SetHeight(C.FRAME_H)
+  LazyWeirdoConfigFrame:SetPoint("CENTER", UIParent, "CENTER")  -- Centered frame
+  LazyWeirdoConfigFrame:SetBackdrop({
       bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
       edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
       tile = true, tileSize = 32, edgeSize = 32,
       insets = { left = 11, right = 12, top = 12, bottom = 11 }
   })
-  if not DEV_MODE then EasyLootConfigFrame:Hide() end
-  table.insert(UISpecialFrames, "EasyLootConfigFrame")
+  if not DEV_MODE then LazyWeirdoConfigFrame:Hide() end
+  table.insert(UISpecialFrames, "LazyWeirdoConfigFrame")
 
   -- Make the frame draggable
-  EasyLootConfigFrame:SetMovable(true)
-  EasyLootConfigFrame:EnableMouse(true)
-  EasyLootConfigFrame:RegisterForDrag("LeftButton")
-  EasyLootConfigFrame:SetScript("OnDragStart", function() this:StartMoving() end)
-  EasyLootConfigFrame:SetScript("OnDragStop", function()
+  LazyWeirdoConfigFrame:SetMovable(true)
+  LazyWeirdoConfigFrame:EnableMouse(true)
+  LazyWeirdoConfigFrame:RegisterForDrag("LeftButton")
+  LazyWeirdoConfigFrame:SetScript("OnDragStart", function() this:StartMoving() end)
+  LazyWeirdoConfigFrame:SetScript("OnDragStop", function()
     this:StopMovingOrSizing()
     local point, _, relPoint, x, y = this:GetPoint()
-    EasyLootDB.position = { point = point, relPoint = relPoint, x = x, y = y }
+    LazyWeirdoDB.position = { point = point, relPoint = relPoint, x = x, y = y }
   end)
 
   -- Add a close button
-  local closeButton = CreateFrame("Button", nil, EasyLootConfigFrame, "UIPanelCloseButton")
-  closeButton:SetPoint("TOPRIGHT", EasyLootConfigFrame, "TOPRIGHT", -5, -5)
+  local closeButton = CreateFrame("Button", nil, LazyWeirdoConfigFrame, "UIPanelCloseButton")
+  closeButton:SetPoint("TOPRIGHT", LazyWeirdoConfigFrame, "TOPRIGHT", -5, -5)
   closeButton:SetScript("OnClick", function()
-      EasyLootConfigFrame:Hide()  -- Hides the frame when the close button is clicked
+      LazyWeirdoConfigFrame:Hide()  -- Hides the frame when the close button is clicked
   end)
 
 
   -- Title text
-  local title = EasyLootConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  local title = LazyWeirdoConfigFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   title:SetPoint("TOP", 0, -20)
-  title:SetText("EasyLoot " .. GetAddOnMetadata("EasyLoot","Version") .. " Configuration")
+  title:SetText("LazyWeirdo " .. GetAddOnMetadata("LazyWeirdo","Version") .. " Configuration")
 
   -- Function to toggle the config frame
-  SLASH_EASYLOOT1 = "/easyloot"
-  SlashCmdList["EASYLOOT"] = function(msg)
+  SLASH_LAZYWEIRDO1 = "/lazyweirdo"
+  SLASH_LAZYWEIRDO2 = "/lw"
+  SlashCmdList["LAZYWEIRDO"] = function(msg)
       if msg == "reset" then
-          EasyLootConfigFrame:ClearAllPoints()
-          EasyLootConfigFrame:SetPoint("CENTER", UIParent, "CENTER")
-          EasyLootDB.position = nil
+          LazyWeirdoConfigFrame:ClearAllPoints()
+          LazyWeirdoConfigFrame:SetPoint("CENTER", UIParent, "CENTER")
+          LazyWeirdoDB.position = nil
           el_print("Frame position reset.")
-          if not EasyLootConfigFrame:IsShown() then EasyLootConfigFrame:Show() end
-      elseif EasyLootConfigFrame:IsShown() then
-          EasyLootConfigFrame:Hide()
+          if not LazyWeirdoConfigFrame:IsShown() then LazyWeirdoConfigFrame:Show() end
+      elseif LazyWeirdoConfigFrame:IsShown() then
+          LazyWeirdoConfigFrame:Hide()
       else
-          EasyLootConfigFrame:Show()
+          LazyWeirdoConfigFrame:Show()
       end
   end
 
@@ -1257,10 +1258,10 @@ function EasyLoot:CreateConfig()
       -- Function to handle item selection
       -- TODO this needs to set config settings
       local function OnClick(self)
-        local v = tonumber(EasyLoot[string.upper(self:GetText())])
+        local v = tonumber(LazyWeirdo[string.upper(self:GetText())])
         if v then
           UIDropDownMenu_SetSelectedName(dropdown, self:GetText())
-          EasyLootDB.settings[setting] = v
+          LazyWeirdoDB.settings[setting] = v
         end
         -- print(UIDropDownMenu_GetSelectedValue(dropdown))
       end
@@ -1298,7 +1299,7 @@ function EasyLoot:CreateConfig()
   ------------------------------------------------------------------
   local activeLabel = nil -- track which raid label has a locked highlight
 
-  local popupOverlay = CreateFrame("Frame", "EasyLootPopupOverlay", UIParent)
+  local popupOverlay = CreateFrame("Frame", "LazyWeirdoPopupOverlay", UIParent)
   popupOverlay:SetFrameStrata("FULLSCREEN_DIALOG")
   popupOverlay:SetAllPoints(UIParent)
   popupOverlay:EnableMouse(true)
@@ -1312,9 +1313,9 @@ function EasyLoot:CreateConfig()
       activeLabel = nil
     end
   end)
-  table.insert(UISpecialFrames, "EasyLootPopupOverlay")
+  table.insert(UISpecialFrames, "LazyWeirdoPopupOverlay")
 
-  local raidPopup = CreateFrame("Frame", "EasyLootRaidPopup", popupOverlay)
+  local raidPopup = CreateFrame("Frame", "LazyWeirdoRaidPopup", popupOverlay)
   raidPopup:SetWidth(245)
   raidPopup:SetBackdrop({
     bgFile = "Interface\\Buttons\\WHITE8x8",
@@ -1427,7 +1428,7 @@ function EasyLoot:CreateConfig()
           btn:Show()
 
           btn:SetScript("OnClick", function()
-            EasyLootDB.settings[this.cat_key] = this.mode
+            LazyWeirdoDB.settings[this.cat_key] = this.mode
             UpdatePopupRow(this.rowIdx, this.mode)
           end)
 
@@ -1444,7 +1445,7 @@ function EasyLoot:CreateConfig()
           end)
         end
 
-        UpdatePopupRow(idx, EasyLootDB.settings[cat.key])
+        UpdatePopupRow(idx, LazyWeirdoDB.settings[cat.key])
       end
     end
 
@@ -1486,7 +1487,7 @@ function EasyLoot:CreateConfig()
     local zone_name = row.zone
     local this_row = row
 
-    local labelFrame = CreateFrame("Button", nil, EasyLootConfigFrame)
+    local labelFrame = CreateFrame("Button", nil, LazyWeirdoConfigFrame)
     labelFrame:SetHeight(C.GRID_ROW_H)
     labelFrame:SetWidth(raidBtnWidth)
     labelFrame:SetPoint("TOPLEFT", C.GRID_LEFT, raid_y - 2)
@@ -1507,7 +1508,7 @@ function EasyLoot:CreateConfig()
     if this_row.cycle_key then
       -- Cycling row (Other): icon shows current mode, click cycles
       local function UpdateIcon()
-        local state = EasyLootDB.settings[this_row.cycle_key]
+        local state = LazyWeirdoDB.settings[this_row.cycle_key]
         local info = state_icons[state] or state_icons[OFF]
         iconTex:SetTexture(info.tex)
         iconTex:ClearAllPoints()
@@ -1523,14 +1524,14 @@ function EasyLoot:CreateConfig()
       local function ShowCycleTooltip()
         GameTooltip:SetOwner(labelFrame, "ANCHOR_RIGHT")
         GameTooltip:SetText(zone_name, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
-        local info = state_icons[EasyLootDB.settings[this_row.cycle_key]] or state_icons[OFF]
+        local info = state_icons[LazyWeirdoDB.settings[this_row.cycle_key]] or state_icons[OFF]
         GameTooltip:AddLine("Current: " .. info.label, 1, 1, 1)
         GameTooltip:AddLine("Click to cycle", 0.5, 0.5, 0.5)
         GameTooltip:Show()
       end
 
       labelFrame:SetScript("OnClick", function()
-        EasyLootDB.settings[this_row.cycle_key] = state_cycle[EasyLootDB.settings[this_row.cycle_key]] or NEED
+        LazyWeirdoDB.settings[this_row.cycle_key] = state_cycle[LazyWeirdoDB.settings[this_row.cycle_key]] or NEED
         UpdateIcon()
         ShowCycleTooltip()
       end)
@@ -1561,7 +1562,7 @@ function EasyLoot:CreateConfig()
 
   ----------------------------------------------------------------------
   -- Additional Options section
-  local optionsDropdown = CreateFrame("Button", "EasyLootOptionsDropdown", EasyLootConfigFrame, "UIDropDownMenuTemplate")
+  local optionsDropdown = CreateFrame("Button", "LazyWeirdoOptionsDropdown", LazyWeirdoConfigFrame, "UIDropDownMenuTemplate")
 
   local _, playerClass = UnitClass("player")
 
@@ -1575,15 +1576,15 @@ function EasyLoot:CreateConfig()
         local info = {}
         info.text = opt.label
         info.keepShownOnClick = 1
-        info.checked = EasyLootDB.settings[setting_key] and 1 or nil
+        info.checked = LazyWeirdoDB.settings[setting_key] and 1 or nil
         info.func = function ()
-          EasyLootDB.settings[setting_key] = not EasyLootDB.settings[setting_key]
+          LazyWeirdoDB.settings[setting_key] = not LazyWeirdoDB.settings[setting_key]
           if setting_key == "combat_plates" then
-            if EasyLootDB.settings.combat_plates and not UnitAffectingCombat("player") then
+            if LazyWeirdoDB.settings.combat_plates and not UnitAffectingCombat("player") then
               HideNameplates()
             end
           elseif setting_key == "combat_names" then
-            if not EasyLootDB.settings.combat_names then
+            if not LazyWeirdoDB.settings.combat_names then
               RestoreNameCVars()
             end
           end
@@ -1601,8 +1602,8 @@ function EasyLoot:CreateConfig()
           btn.el_tooltip = opt.tooltip
           btn:SetScript("OnEnter", function()
             if this.el_orig_enter then this.el_orig_enter() end
-            if UIDROPDOWNMENU_OPEN_MENU ~= "EasyLootOptionsDropdown" then return end
-            GameTooltip:SetOwner(EasyLootOptionsDropdown, "ANCHOR_BOTTOMRIGHT")
+            if UIDROPDOWNMENU_OPEN_MENU ~= "LazyWeirdoOptionsDropdown" then return end
+            GameTooltip:SetOwner(LazyWeirdoOptionsDropdown, "ANCHOR_BOTTOMRIGHT")
             GameTooltip:SetText(this.el_label, C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
             GameTooltip:AddLine(this.el_tooltip, 1, 1, 1, true)
             GameTooltip:Show()
@@ -1654,7 +1655,7 @@ function EasyLoot:CreateConfig()
 
       -- Enabled / Disabled toggle header
       if opts.setting then
-        local enabled = EasyLootDB.settings[opts.setting]
+        local enabled = LazyWeirdoDB.settings[opts.setting]
         local info = {}
         info.text = enabled and "Enabled" or "Disabled"
         info.textR = enabled and 1 or 0.5
@@ -1663,8 +1664,8 @@ function EasyLoot:CreateConfig()
         info.checked = enabled and 1 or nil
         info.keepShownOnClick = 1
         info.func = function ()
-          EasyLootDB.settings[opts.setting] = not EasyLootDB.settings[opts.setting]
-          local en = EasyLootDB.settings[opts.setting]
+          LazyWeirdoDB.settings[opts.setting] = not LazyWeirdoDB.settings[opts.setting]
+          local en = LazyWeirdoDB.settings[opts.setting]
           local btn = getglobal("DropDownList1Button1")
           if btn then
             local r, g, b = en and 1 or 0.5, en and 1 or 0.5, en and 1 or 0.5
@@ -1912,7 +1913,7 @@ local function ParseBuyInput(text)
   itemName = TitleCase(itemName)
   if itemName == "" then return end
   local found = false
-  for _,entry in ipairs(EasyLootDB.buylist) do
+  for _,entry in ipairs(LazyWeirdoDB.buylist) do
     if string.lower(entry.name) == string.lower(itemName) then
       entry.count = count
       entry.enabled = true
@@ -1921,7 +1922,7 @@ local function ParseBuyInput(text)
     end
   end
   if not found then
-    table.insert(EasyLootDB.buylist, { name = itemName, count = count, enabled = true })
+    table.insert(LazyWeirdoDB.buylist, { name = itemName, count = count, enabled = true })
   end
   el_print(format("Added %dx "..ITEM_COLOR.."%s|r to buy list.", count, itemName))
 end
@@ -2006,10 +2007,10 @@ for _,dd in ipairs(right_col_dropdowns) do
     optionsDropdown:SetPoint("TOP", rightColX - C.DROPDOWN_OFFSET, dd.y)
   elseif dd.type == "list" then
     dd_idx = dd_idx + 1
-    CreateItemListDropdown(EasyLootConfigFrame, rightColX, dd.y, {
-      items = EasyLootDB[dd.list],
+    CreateItemListDropdown(LazyWeirdoConfigFrame, rightColX, dd.y, {
+      items = LazyWeirdoDB[dd.list],
       label = dd.label,
-      name = "EasyLootDD"..dd_idx,
+      name = "LazyWeirdoDD"..dd_idx,
       tooltip = dd.tooltip,
       tooltip_extra = dd.tooltip_extra,
       popup = dd.popup,
@@ -2049,7 +2050,7 @@ end
     return "ROUND"
   end
 
-  local minimapBtn = CreateFrame("Button", "EasyLootMinimapButton", Minimap)
+  local minimapBtn = CreateFrame("Button", "LazyWeirdoMinimapButton", Minimap)
   minimapBtn:SetWidth(32)
   minimapBtn:SetHeight(32)
   minimapBtn:SetFrameStrata("MEDIUM")
@@ -2093,8 +2094,8 @@ end
     minimapBtn:SetPoint("CENTER", Minimap, "CENTER", x, y)
   end
 
-  EasyLootDB.minimap_angle = EasyLootDB.minimap_angle or 220
-  MinimapButton_UpdatePosition(EasyLootDB.minimap_angle)
+  LazyWeirdoDB.minimap_angle = LazyWeirdoDB.minimap_angle or 220
+  MinimapButton_UpdatePosition(LazyWeirdoDB.minimap_angle)
 
   minimapBtn:RegisterForDrag("LeftButton")
   minimapBtn:SetScript("OnDragStart", function()
@@ -2110,21 +2111,21 @@ end
     local scale = Minimap:GetEffectiveScale()
     cx, cy = cx / scale, cy / scale
     local angle = math.deg(math.atan2(cy - my, cx - mx))
-    EasyLootDB.minimap_angle = angle
+    LazyWeirdoDB.minimap_angle = angle
     MinimapButton_UpdatePosition(angle)
   end)
 
   minimapBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   minimapBtn:SetScript("OnClick", function()
-    if EasyLootConfigFrame:IsShown() then
-      EasyLootConfigFrame:Hide()
+    if LazyWeirdoConfigFrame:IsShown() then
+      LazyWeirdoConfigFrame:Hide()
     else
-      EasyLootConfigFrame:Show()
+      LazyWeirdoConfigFrame:Show()
     end
   end)
   minimapBtn:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText("EasyLoot", C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
+    GameTooltip:SetText("LazyWeirdo", C.TOOLTIP_R, C.TOOLTIP_G, C.TOOLTIP_B)
     GameTooltip:AddLine("Click to toggle config.", 1, 1, 1)
     GameTooltip:AddLine("Drag to move.", 0.5, 0.5, 0.5)
     GameTooltip:Show()

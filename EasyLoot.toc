@@ -1,9 +1,0 @@
-## Interface: 11200
-## Title: [SuperWoW] EasyLoot 1.7.11 |cff7fff7fSuper-WoW|r
-## Notes: Have loot handle itself
-## Author: Weird Vibes
-## SavedVariablesPerCharacter: EasyLootDB
-## Version: 1.7.11
-## OptionalDeps: SuperAPI, pfUI
-
-EasyLoot.lua

@@ -1,0 +1,9 @@
+## Interface: 11200
+## Title: [SuperWoW] LazyWeirdo 1.8.0
+## Notes: Have loot handle itself
+## Author: Weird Vibes
+## SavedVariablesPerCharacter: LazyWeirdoDB
+## Version: 1.8.0
+## OptionalDeps: SuperAPI, pfUI
+
+LazyWeirdo.lua

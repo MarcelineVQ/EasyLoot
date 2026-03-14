@@ -1,12 +1,12 @@
-# EasyLoot 1.7.11
+# LazyWeirdo 1.8.0
 Automatic loot rules for instances and groups. Have loot handle itself.
 ---
-`/easyloot` for in game options. `/easyloot reset` to reset frame position.
+`/lazyweirdo` or `/lw` for in game options. `/lazyweirdo reset` or `/lw reset` to reset frame position.
 Best used with [SuperWow](https://github.com/balakethelock/SuperWoW/) enabled.
 
 ### SuperWoW & Auto-loot
-* EasyLoot handles all autolooting itself, deciding what to pick up based on your settings. If SuperAPI is detected, EasyLoot disables its built-in auto-loot setting to prevent conflicts.
-* If you see "Already looted" messages, your client likely has a patch that enables auto-loot by default. Disable it and let EasyLoot handle looting instead to avoid this message.
+* LazyWeirdo handles all autolooting itself, deciding what to pick up based on your settings. If SuperAPI is detected, LazyWeirdo disables its built-in auto-loot setting to prevent conflicts.
+* If you see "Already looted" messages, your client likely has a patch that enables auto-loot by default. Disable it and let LazyWeirdo handle looting instead to avoid this message.
 
 ### Raid Loot Options
 * Per-raid loot rules with icon toggles for ZG, AQ20, MC, BWL, ES, AQ40, Naxx, and Kara.
